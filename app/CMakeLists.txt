@@ -19,7 +19,7 @@ find_library( # Sets the name of the path variable.
               log )
 
 set(ffmpeg_DIR ${CMAKE_SOURCE_DIR}/src/main/cpp/FFmpeg)
-include_directories(${ffmpeg_DIR}/include)
+include_directories(${ffmpeg_DIR}/${ANDROID_ABI}/include)
 
 add_library(libavutil SHARED IMPORTED)
 set_target_properties(libavutil PROPERTIES IMPORTED_LOCATION
