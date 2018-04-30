@@ -1,0 +1,14 @@
+prefix=/home/cuckoo/ffmpeg-4.0/android/arm64-v8a
+exec_prefix=${prefix}
+libdir=/home/cuckoo/ffmpeg-4.0/android/arm64-v8a/lib
+includedir=/home/cuckoo/ffmpeg-4.0/android/arm64-v8a/include
+
+Name: libavutil
+Description: FFmpeg utility library
+Version: 56.14.100
+Requires: 
+Requires.private: 
+Conflicts:
+Libs: -L${libdir}  -lavutil 
+Libs.private: -pthread -lm
+Cflags: -I${includedir}
