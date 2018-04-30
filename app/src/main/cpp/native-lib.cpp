@@ -1,7 +1,9 @@
 #include <jni.h>
 #include <string>
 
+extern "C" {
 #include "libavcodec/avcodec.h"
+}
 
 extern "C" JNIEXPORT jstring
 
