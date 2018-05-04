@@ -22,7 +22,9 @@ class MainActivity : AppCompatActivity() {
         Log.i(LOG_TAG, "activiy initialized")
         initCameraList()
         Log.i(LOG_TAG, "camera list is set")
-        cameras.setAdapter(ArrayAdapter<String>(this, R.layout.cameras_layout, camera_list))
+        cameras.setAdapter(ArrayAdapter<String>(
+                this, R.layout.cameras_layout, R.id.camera, camera_list
+        ))
     }
 
     private fun initCameraList() {
