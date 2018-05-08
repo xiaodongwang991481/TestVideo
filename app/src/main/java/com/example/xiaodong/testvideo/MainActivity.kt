@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.widget.ArrayAdapter
 import kotlinx.android.synthetic.main.activity_main.*
 import android.content.ClipData.Item
+import android.content.Intent
 import android.util.Log
 import android.view.View
 import android.widget.AdapterView
@@ -51,10 +52,18 @@ class MainActivity : AppCompatActivity() {
 
     public fun onButtonClickAdd() {
         Log.i(LOG_TAG, "add camera")
+        var intent: Intent = Intent(this, CameraEditActivity::class.java)
+        this.startActivityForResult(intent, 1)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
     }
 
     public fun onButtionClickEdit(camera: Camera) {
         Log.i(LOG_TAG, " edit camera ${camera.name}")
+        var intent: Intent = Intent(this, CameraEditActivity::class.java)
+        this.startActivityForResult(intent, 0)
     }
 
     public fun onButtonClickDelete(camera: Camera) {

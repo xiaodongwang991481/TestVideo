@@ -48,8 +48,8 @@ android {
     }
     // sourceSets {
     //    main {
-            // let gradle pack the shared library into apk
-            // jniLibs.srcDirs = ['libs']
+    // let gradle pack the shared library into apk
+    // jniLibs.srcDirs = ['libs']
     //    }
     // }
     externalNativeBuild {
@@ -60,7 +60,7 @@ android {
 }
 
 // Map for the version code that gives each ABI a value.
-ext.abiCodes = ['armeabi-v7a':1, 'arm64-v8a':2]
+ext.abiCodes = ['armeabi-v7a': 1, 'arm64-v8a': 2]
 
 // For per-density APKs, create a similar map like this:
 // ext.densityCodes = ['mdpi': 1, 'hdpi': 2, 'xhdpi': 3]
@@ -95,9 +95,10 @@ android.applicationVariants.all { variant ->
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar', '*.so', '*.a'])
-    implementation"org.jetbrains.kotlin:kotlin-stdlib-jre7:$kotlin_version"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jre7:$kotlin_version"
     implementation 'com.android.support:appcompat-v7:27.1.1'
     implementation 'com.android.support.constraint:constraint-layout:1.1.0'
+    implementation 'com.android.support:support-v4:27.1.1'
     testImplementation 'junit:junit:4.12'
     androidTestImplementation 'com.android.support.test:runner:1.0.1'
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.1'
