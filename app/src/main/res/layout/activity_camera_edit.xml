@@ -6,4 +6,64 @@
     android:layout_height="match_parent"
     tools:context=".CameraEditActivity">
 
+    <TextView
+        android:id="@+id/edit_camera_name_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Camera Name"
+        tools:layout_editor_absoluteX="35dp"
+        tools:layout_editor_absoluteY="40dp" />
+
+    <EditText
+        android:id="@+id/edit_camera_name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:ems="10"
+        android:inputType=""
+        android:text=""
+        tools:layout_editor_absoluteX="128dp"
+        tools:layout_editor_absoluteY="40dp" />
+
+    <TextView
+        android:id="@+id/edit_camera_source_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Camera Source"
+        tools:layout_editor_absoluteX="35dp"
+        tools:layout_editor_absoluteY="120dp" />
+
+    <EditText
+        android:id="@+id/edit_camera_source"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:ems="10"
+        android:inputType=""
+        android:text=""
+        tools:layout_editor_absoluteX="128dp"
+        tools:layout_editor_absoluteY="120dp" />
+
+    <LinearLayout
+        android:layout_width="585dp"
+        android:layout_height="500dp"
+        android:orientation="vertical"
+        tools:layout_editor_absoluteX="8dp"
+        tools:layout_editor_absoluteY="171dp">
+
+        <ExpandableListView
+            android:id="@+id/camera_dests"
+            style="@android:style/Widget.ExpandableListView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scrollbars="vertical"
+            android:visibility="visible" />
+    </LinearLayout>
+
+    <Button
+        android:id="@+id/edit_camera_save"
+        android:layout_width="99dp"
+        android:layout_height="33dp"
+        android:text="Save"
+        tools:layout_editor_absoluteX="57dp"
+        tools:layout_editor_absoluteY="725dp" />
+
 </android.support.constraint.ConstraintLayout>

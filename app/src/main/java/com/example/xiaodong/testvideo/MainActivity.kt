@@ -15,19 +15,15 @@ class MainActivity : AppCompatActivity() {
 
     inner class AddCamera : View.OnClickListener {
         override fun onClick(v: View?) {
-            this@MainActivity?.let {
-                this@MainActivity.onButtonClickAdd()
-            }
+            this@MainActivity.onButtonClickAdd()
         }
     }
 
     inner class ShowCamera : AdapterView.OnItemClickListener {
         override fun onItemClick(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-            this@MainActivity?.let {
-                var camera: Camera? = cameras.getItemAtPosition(position) as? Camera
-                camera?.let {
-                    this@MainActivity.onItemClickShow(camera)
-                }
+            var camera: Camera? = cameras.getItemAtPosition(position) as? Camera
+            camera?.let {
+                this@MainActivity.onItemClickShow(camera)
             }
         }
     }
@@ -56,13 +52,37 @@ class MainActivity : AppCompatActivity() {
         this.startActivityForResult(intent, 1)
     }
 
+    public fun updateCamera(camera: Camera) {
+        for (existing_camera: Camera in camera_list) {
+            if (existing_camera == camera) {
+                existing_camera.copy(source=camera.source, dests=camera.dests)
+                break
+            }
+        }
+    }
+
+    public fun addCamera(camera: Camera) {
+        camera_list.add(camera)
+    }
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        data?.let {
+            var camera: Camera = intent.getParcelableExtra("camera") as Camera
+            when (requestCode) {
+                0 -> updateCamera(camera)
+                1 -> addCamera(camera)
+                else -> {
+                    Log.e(LOG_TAG, "unknown request code ${requestCode}")
+                }
+            }
+        }
     }
 
     public fun onButtionClickEdit(camera: Camera) {
         Log.i(LOG_TAG, " edit camera ${camera.name}")
         var intent: Intent = Intent(this, CameraEditActivity::class.java)
+        intent.putExtra("camera", camera)
         this.startActivityForResult(intent, 0)
     }
 
