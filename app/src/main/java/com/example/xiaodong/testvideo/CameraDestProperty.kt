@@ -18,6 +18,19 @@ data class CameraDestProperty(val name: String, val value: String) : Parcelable 
         return 0
     }
 
+    override fun equals(other: Any?): Boolean {
+        val otherCameraDestProperty = other as? CameraDestProperty
+        if (otherCameraDestProperty.name == null) {
+            return false
+        } else {
+            return name == otherCameraDestProperty.name
+        }
+    }
+
+    override fun hashCode(): Int {
+        return name.hashCode()
+    }
+
     companion object CREATOR : Parcelable.Creator<CameraDestProperty> {
         override fun createFromParcel(parcel: Parcel): CameraDestProperty {
             return CameraDestProperty(parcel)

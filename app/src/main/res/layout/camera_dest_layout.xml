@@ -1,24 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent" android:layout_height="match_parent">
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
 
     <EditText
-        android:id="@+id/editText"
+        android:id="@+id/edit_camera_dest"
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
-        android:layout_alignParentStart="true"
-        android:layout_alignParentTop="true"
         android:ems="10"
-        android:inputType="textPersonName"
-        android:text="Name" />
+        android:inputType="text"
+        android:text="" />
 
     <Button
         android:id="@+id/add_camera_dest_property"
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
-        android:layout_alignParentEnd="true"
-        android:layout_alignParentTop="true"
         android:text="@string/add_camera_dest_property" />
 
-
-</RelativeLayout>
+    <Button
+        android:id="@+id/delete_camera_dest"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:text="@string/delete_camera_dest" />
+</LinearLayout>

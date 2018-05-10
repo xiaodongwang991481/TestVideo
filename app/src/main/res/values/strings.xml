@@ -11,4 +11,5 @@
     <string name="edit_camera_dest">Edit</string>
     <string name="add_camera_dest">Add Dest</string>
     <string name="add_camera_dest_property">Add Property</string>
+    <string name="delete_camera_dest_property">Delete</string>
 </resources>

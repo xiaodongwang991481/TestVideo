@@ -11,12 +11,21 @@ import kotlinx.android.synthetic.main.activity_camera_edit.*
 class CameraEditActivity : AppCompatActivity() {
 
     private val LOGTAG = "CameraEditActivity"
+    private var cameraDests = ArrayList<CameraDest>()
+    private var cameraDestAdapter = CameraDestAdapter(this, cameraDests)
 
     inner class SaveCamera : View.OnClickListener {
         override fun onClick(v: View?) {
             this@CameraEditActivity.onButtonClickSave()
         }
     }
+
+    inner class AddCameraDest : View.OnClickListener {
+        override fun onClick(v: View?) {
+            this@CameraEditActivity.onButtonClickAddDest()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_camera_edit)
@@ -28,6 +37,10 @@ class CameraEditActivity : AppCompatActivity() {
             edit_camera_name.setEnabled(false)
             edit_camera_name.setTextColor(Color.GRAY)
             edit_camera_source.setText(camera.source)
+            add_camera_dest.setOnClickListener(AddCameraDest())
+            cameraDests = camera.dests
+            cameraDestAdapter = CameraDestAdapter(this, cameraDests)
+            edit_camera_dests.setAdapter(cameraDestAdapter)
         }
         edit_camera_save.setOnClickListener(SaveCamera())
     }
@@ -51,5 +64,17 @@ class CameraEditActivity : AppCompatActivity() {
         intent.putExtra("camera", camera)
         setResult(RESULT_OK, intent)
         finish()
+    }
+
+    fun onButtonClickAddDest() {
+        Log.i(LOGTAG, "add camera dest")
+        if (camera_dest.text.isNullOrBlank()) {
+            Log.e(LOGTAG, "camera dest is empty")
+            return
+        }
+        val cameraDest = CameraDest(camera_dest.text.toString())
+        Log.i(LOGTAG, "add camera dest ${cameraDest.name}")
+        cameraDests.add(cameraDest)
+        cameraDestAdapter.notifyDataSetChanged()
     }
 }

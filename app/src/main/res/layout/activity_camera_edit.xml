@@ -51,17 +51,19 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal">
-    <TextView
-        android:id="@+id/edit_camera_name_dests_text"
-        android:layout_width="wrap_content"
-        android:layout_height="match_parent"
-        android:text="@string/camera_dests"
-        android:labelFor="@+id/edit_camera_dests" />
     <Button
         android:id="@+id/add_camera_dest"
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
+        android:labelFor="@+id/camera_dest"
         android:text="@string/add_camera_dest" />
+    <EditText
+        android:id="@+id/camera_dest"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:inputType="text"
+        android:text=""
+        android:ems="10" />
     </LinearLayout>
     <ExpandableListView
         android:id="@+id/edit_camera_dests"
