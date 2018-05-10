@@ -77,4 +77,17 @@ class CameraEditActivity : AppCompatActivity() {
         cameraDests.add(cameraDest)
         cameraDestAdapter.notifyDataSetChanged()
     }
+
+    fun onButtonClickAddProperty(val cameraDest: CameraDest) {
+    }
+
+    fun onButtonClickDelete(val cameraDest: CameraDest) {
+        cameraDests.remove(cameraDest)
+        cameraDestAdapter.notifyDataSetChanged()
+    }
+
+    fun onButtonClickDeleteProperty(val cameraDest: CameraDest, val cameraDestProperty: CameraDestProperty) {
+        cameraDest.dest_properties.remove(cameraDestProperty)
+        cameraDestAdapter.notifyDataSetChanged()
+    }
 }

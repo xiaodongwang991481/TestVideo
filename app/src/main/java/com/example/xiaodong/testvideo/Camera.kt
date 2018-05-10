@@ -25,7 +25,7 @@ data class Camera(val name: String, val source: String,
 
     override fun equals(other: Any?): Boolean {
         val otherCamera = other as? Camera
-        if (otherCamera.name == null) {
+        if (otherCamera == null) {
             return false
         } else {
             return name == otherCamera.name

@@ -105,6 +105,7 @@ class MainActivity : AppCompatActivity() {
     fun onButtonClickDelete(camera: Camera) {
         Log.i(LOGTAG, "delete camera ${camera.name}")
         cameraList.remove(camera)
+        camerasAdapter.notifyDataSetChanged()
     }
 
     fun onItemClickShow(camera: Camera) {

@@ -5,6 +5,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.BaseExpandableListAdapter
+import android.widget.EditText
 
 class CameraDestAdapter(val context: Context, val cameraDests: ArrayList<CameraDest>) : BaseExpandableListAdapter() {
     val app: CameraEditActivity? = context as? CameraEditActivity
@@ -13,13 +14,37 @@ class CameraDestAdapter(val context: Context, val cameraDests: ArrayList<CameraD
         override fun onClick(v: View?) {
             v?.let {
                 app?.let {
-                    this@CameraDestAdapter.onButtonClickAddProperty(cameraDest)
+                    app.onButtonClickAddProperty(cameraDest)
                 }
             }
         }
     }
 
-    inner class DeleteCameraDest()
+    inner class DeleteCameraDest(val cameraDest: CameraDest) : View.OnClickListener {
+        override fun onClick(v: View?) {
+            v?.let {
+                app?.let {
+                    app.onButtonClickDelete(cameraDest)
+                }
+            }
+        }
+    }
+
+    inner class DeleteCameraDestProperty(
+            val cameraDest: CameraDest, val cameraDestProperty: CameraDestProperty
+    ) : View.OnClickListener {
+        override fun onClick(v: View?) {
+            v?.let {
+                app?.let {
+                    app.onButtonClickDeleteProperty(cameraDest, cameraDestProperty)
+                }
+            }
+        }
+    }
+
+    override fun isChildSelectable(groupPosition: Int, childPosition: Int): Boolean {
+        return true
+    }
 
     override fun getChild(groupPosition: Int, childPosition: Int): Any {
         return cameraDests.get(groupPosition).dest_properties.get(childPosition)
@@ -32,8 +57,21 @@ class CameraDestAdapter(val context: Context, val cameraDests: ArrayList<CameraD
     override fun getChildView(
             groupPosition: Int, childPosition: Int,
             isLastChild: Boolean, convertView: View?, parent: ViewGroup?): View? {
+        val currentItem: CameraDestProperty? = getChild(groupPosition, childPosition) as? CameraDestProperty
         val view: View? = convertView ?: LayoutInflater.from(context).
                 inflate(R.layout.camera_dest_property_layout, parent, false)
+        val itemName: EditText? = view?.findViewById(R.id.edit_camera_dest_property_name)
+        itemName?.let {
+            currentItem?.let {
+                itemName.setText(currentItem.name)
+            }
+        }
+        val itemValue: EditText? = view?.findViewById(R.id.edit_camera_dest_property_value)
+        itemValue?.let {
+            currentItem?.let {
+                itemValue.setText(currentItem.value)
+            }
+        }
         return view
     }
 
@@ -56,11 +94,17 @@ class CameraDestAdapter(val context: Context, val cameraDests: ArrayList<CameraD
     override fun getGroupView(
             groupPosition: Int, isExpanded: Boolean, convertView: View?, parent: ViewGroup
     ): View? {
+        val currentItem: CameraDest? = getGroup(groupPosition) as? CameraDest
         val view: View? = convertView ?: LayoutInflater.from(context).
                 inflate(R.layout.camera_dest_layout, parent, false)
+        val itemName: EditText? = view?.findViewById(R.id.edit_camera_dest)
+        itemName?.let {
+            currentItem?.let {
+                itemName.setText(currentItem.name)
+            }
+        }
         return view
     }
 
-    fun onButtonClickAddProperty(val cameraDest: CameraDest) {
-    }
+
 }

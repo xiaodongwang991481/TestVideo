@@ -24,7 +24,7 @@ data class CameraDest(
 
     override fun equals(other: Any?): Boolean {
         val otherCameraDest = other as? CameraDest
-        if (otherCameraDest.name == null) {
+        if (otherCameraDest == null) {
             return false
         } else {
             return name == otherCameraDest.name
