@@ -2,9 +2,7 @@ package com.example.xiaodong.testvideo
 
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
-import android.widget.ArrayAdapter
 import kotlinx.android.synthetic.main.activity_main.*
-import android.content.ClipData.Item
 import android.content.Intent
 import android.util.Log
 import android.view.View
@@ -21,81 +19,99 @@ class MainActivity : AppCompatActivity() {
 
     inner class ShowCamera : AdapterView.OnItemClickListener {
         override fun onItemClick(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-            var camera: Camera? = cameras.getItemAtPosition(position) as? Camera
+            val camera: Camera? = cameras.getItemAtPosition(position) as? Camera
             camera?.let {
                 this@MainActivity.onItemClickShow(camera)
             }
         }
     }
 
-    private var camera_list = ArrayList<Camera>()
-    private val LOG_TAG = "mainActivity"
+    private var cameraList = ArrayList<Camera>()
+    private var camerasAdapter = CameraAdapter(
+            this, cameraList
+    )
+    private val LOGTAG = "mainActivity"
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         // Example of a call to a native method
         // sample_text.text = stringFromJNI()
-        Log.i(LOG_TAG, "activiy initialized")
+        Log.i(LOGTAG, "activiy initialized")
         initCameraList()
-        Log.i(LOG_TAG, "camera list is set")
+        Log.i(LOGTAG, "camera list is set")
         add_camera.setOnClickListener(AddCamera())
         cameras.setOnItemClickListener(ShowCamera())
-        cameras.setAdapter(CameraAdapter(
-                this, camera_list
-        ))
+        cameras.setAdapter(camerasAdapter)
     }
 
-    public fun onButtonClickAdd() {
-        Log.i(LOG_TAG, "add camera")
-        var intent: Intent = Intent(this, CameraEditActivity::class.java)
+    fun onButtonClickAdd() {
+        Log.i(LOGTAG, "add camera")
+        val intent = Intent(this, CameraEditActivity::class.java)
         this.startActivityForResult(intent, 1)
     }
 
-    public fun updateCamera(camera: Camera) {
-        for (existing_camera: Camera in camera_list) {
-            if (existing_camera == camera) {
-                existing_camera.copy(source=camera.source, dests=camera.dests)
+    fun updateCamera(camera: Camera) {
+        Log.i(LOGTAG,"update camera ${camera.name} = ${camera.source}")
+        var found = false
+        for (i in cameraList.indices) {
+            var existing_camera = cameraList[i]
+            if (existing_camera.name == camera.name) {
+                existing_camera = camera
+                cameraList[i] = existing_camera
+                Log.i(LOGTAG, "update existing camera ${existing_camera.name} = ${existing_camera.source}")
+                found = true
                 break
             }
         }
+        if (!found) {
+            Log.e(LOGTAG, "camera ${camera.name} is not found in existing cameras")
+        }
+        camerasAdapter.notifyDataSetChanged()
     }
 
-    public fun addCamera(camera: Camera) {
-        camera_list.add(camera)
+    fun addCamera(camera: Camera) {
+        Log.i(LOGTAG,"add camera ${camera.name} = ${camera.source}")
+        cameraList.add(camera)
+        camerasAdapter.notifyDataSetChanged()
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         data?.let {
-            var camera: Camera = intent.getParcelableExtra("camera") as Camera
-            when (requestCode) {
-                0 -> updateCamera(camera)
-                1 -> addCamera(camera)
-                else -> {
-                    Log.e(LOG_TAG, "unknown request code ${requestCode}")
+            val camera: Camera? = it.getParcelableExtra("camera") as? Camera
+            if (camera != null) {
+                when (requestCode) {
+                    0 -> updateCamera(camera)
+                    1 -> addCamera(camera)
+                    else -> {
+                        Log.e(LOGTAG, "unknown request code $requestCode")
+                    }
                 }
+            } else {
+                Log.e(LOGTAG, "camera is null")
             }
         }
     }
 
-    public fun onButtionClickEdit(camera: Camera) {
-        Log.i(LOG_TAG, " edit camera ${camera.name}")
-        var intent: Intent = Intent(this, CameraEditActivity::class.java)
+    fun onButtonClickEdit(camera: Camera) {
+        Log.i(LOGTAG, " edit camera ${camera.name}")
+        val intent = Intent(this, CameraEditActivity::class.java)
         intent.putExtra("camera", camera)
         this.startActivityForResult(intent, 0)
     }
 
-    public fun onButtonClickDelete(camera: Camera) {
-        Log.i(LOG_TAG, "delete camera ${camera.name}")
+    fun onButtonClickDelete(camera: Camera) {
+        Log.i(LOGTAG, "delete camera ${camera.name}")
     }
 
-    public fun onItemClickShow(camera: Camera) {
-        Log.i(LOG_TAG, "show camera ${camera.name}")
+    fun onItemClickShow(camera: Camera) {
+        Log.i(LOGTAG, "show camera ${camera.name}")
     }
 
     private fun initCameraList() {
-        camera_list.add(Camera(name="test1", source="rtsp://"))
+        cameraList.add(Camera(name="test1", source="rtsp://"))
     }
     /**
      * A native method that is implemented by the 'native-lib' native library,

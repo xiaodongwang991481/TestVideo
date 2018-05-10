@@ -16,7 +16,7 @@ class CameraAdapter(val context: Context, val cameras: ArrayList<Camera>) : Base
         override fun onClick(v: View?) {
             v?.let {
                 app?.let {
-                    app.onButtionClickEdit(camera)
+                    app.onButtonClickEdit(camera)
                 }
             }
         }
@@ -53,13 +53,13 @@ class CameraAdapter(val context: Context, val cameras: ArrayList<Camera>) : Base
                 itemName.setText(currentItem.name)
             }
         }
-        var editItem: Button? = view?.findViewById(R.id.edit_camera)
+        val editItem: Button? = view?.findViewById(R.id.edit_camera)
         editItem?.let {
             currentItem?.let {
                 editItem.setOnClickListener(EditCamera(currentItem))
             }
         }
-        var deleteItem: Button? = view?.findViewById(R.id.delete_camera)
+        val deleteItem: Button? = view?.findViewById(R.id.delete_camera)
         deleteItem?.let {
             currentItem?.let {
                 deleteItem.setOnClickListener(DeleteCamera(currentItem))

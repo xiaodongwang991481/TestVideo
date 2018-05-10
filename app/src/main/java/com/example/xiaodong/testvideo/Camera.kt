@@ -2,27 +2,21 @@ package com.example.xiaodong.testvideo
 
 import android.os.Parcel
 import android.os.Parcelable
-import java.util.LinkedHashMap
 
 data class Camera(val name: String, val source: String,
-                  val dests: LinkedHashMap<String, LinkedHashMap<String, String>> = LinkedHashMap<String, LinkedHashMap<String, String>>()
+                  val dests: ArrayList<CameraDest> = ArrayList<CameraDest>()
 ) : Parcelable {
     constructor(parcel: Parcel) : this(
             parcel.readString(),
             parcel.readString(),
-            TODO("dests")) {
-    }
-
-    override fun equals(other: Any?): Boolean {
-        when(other) {
-            is Camera -> return name == other.name
-            else -> return false
-        }
+            ArrayList<CameraDest>()) {
+        parcel.readTypedList(dests, CameraDest.CREATOR)
     }
 
     override fun writeToParcel(parcel: Parcel, flags: Int) {
         parcel.writeString(name)
         parcel.writeString(source)
+        parcel.writeTypedList(dests)
     }
 
     override fun describeContents(): Int {
