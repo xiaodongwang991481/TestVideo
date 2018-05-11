@@ -6,12 +6,15 @@ import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import android.widget.EditText
 import kotlinx.android.synthetic.main.activity_camera_edit.*
 
 class CameraEditActivity : AppCompatActivity() {
 
     private val LOGTAG = "CameraEditActivity"
     private var cameraDests = ArrayList<CameraDest>()
+    private var cameraName = ""
+    private var cameraSource = ""
     private var cameraDestAdapter = CameraDestAdapter(this, cameraDests)
 
     inner class SaveCamera : View.OnClickListener {
@@ -26,23 +29,58 @@ class CameraEditActivity : AppCompatActivity() {
         }
     }
 
+    fun saveCamera() {
+
+    }
+
+    fun loadCamera() {
+
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_camera_edit)
+        Log.i(LOGTAG, "camera edit activity initialized")
         if (intent.hasExtra("camera")) {
             val camera: Camera = intent.getParcelableExtra("camera")
             Log.i(LOGTAG, "get camera ${camera.name}=${camera.source}")
-            edit_camera_name.setText(camera.name)
+            cameraName = camera.name
+            cameraSource = camera.source
+            edit_camera_name.setText(cameraName)
             edit_camera_name.focusable = 0
             edit_camera_name.setEnabled(false)
             edit_camera_name.setTextColor(Color.GRAY)
-            edit_camera_source.setText(camera.source)
+            edit_camera_source.setText(cameraSource)
             add_camera_dest.setOnClickListener(AddCameraDest())
             cameraDests = camera.dests
             cameraDestAdapter = CameraDestAdapter(this, cameraDests)
             edit_camera_dests.setAdapter(cameraDestAdapter)
         }
         edit_camera_save.setOnClickListener(SaveCamera())
+    }
+
+    override fun onSaveInstanceState(outState: Bundle?) {
+        super.onSaveInstanceState(outState)
+        Log.i(LOGTAG, "save state")
+        cameraName = edit_camera_name.text.toString()
+        cameraSource = edit_camera_source.text.toString()
+        outState?.putString("name", cameraName)
+        outState?.putString("source", cameraSource)
+        outState?.putParcelableArrayList("camera_dests", cameraDests)
+    }
+
+    override fun onRestoreInstanceState(savedInstanceState: Bundle?) {
+        super.onRestoreInstanceState(savedInstanceState)
+        Log.i(LOGTAG, "restore state")
+        cameraName = savedInstanceState?.getString("name") ?: ""
+        cameraSource = savedInstanceState?.getString("source") ?: ""
+        edit_camera_name.setText(cameraName)
+        edit_camera_source.setText(cameraSource)
+        cameraDests = savedInstanceState?.getParcelableArrayList(
+                "camera_dests"
+        ) ?: ArrayList<CameraDest>()
+        cameraDestAdapter = CameraDestAdapter(this, cameraDests)
+        edit_camera_dests.setAdapter(cameraDestAdapter)
     }
 
     fun onButtonClickSave() {
@@ -55,9 +93,11 @@ class CameraEditActivity : AppCompatActivity() {
             Log.e(LOGTAG, "camera source is empty")
             return
         }
+        cameraName = edit_camera_name.text.toString()
+        cameraSource = edit_camera_source.text.toString()
         val camera = Camera(
-                name=edit_camera_name.text.toString(),
-                source=edit_camera_source.text.toString(),
+                name=cameraName,
+                source=cameraSource,
                 dests=cameraDests
             )
         Log.i(LOGTAG, "set camera to ${camera.name}=${camera.source}")
@@ -69,8 +109,11 @@ class CameraEditActivity : AppCompatActivity() {
 
     fun onButtonClickAddDest() {
         Log.i(LOGTAG, "add camera dest")
-        val intent = Intent(this, CameraDestEditActivity::class.java)
-        this.startActivityForResult(intent, 1)
+        if (camera_dest_name.text.isNullOrBlank()) {
+            Log.e(LOGTAG, "camera dest is empty")
+            return
+        }
+        addCameraDest(CameraDest(camera_dest_name.text.toString()))
     }
 
     fun onButtonClickEdit(cameraDest: CameraDest) {

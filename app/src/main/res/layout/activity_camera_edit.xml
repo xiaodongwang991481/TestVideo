@@ -10,18 +10,18 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal">
+        android:orientation="vertical">
     <TextView
         android:id="@+id/edit_camera_name_text"
         android:layout_width="wrap_content"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
         android:text="@string/camera_name"
         android:labelFor="@+id/edit_camera_name" />
 
     <EditText
         android:id="@+id/edit_camera_name"
-        android:layout_width="wrap_content"
-        android:layout_height="match_parent"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
         android:inputType="text"
         android:ems="10"
         android:text="" />
@@ -30,29 +30,42 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal">
+        android:orientation="vertical">
     <TextView
         android:id="@+id/edit_camera_source_text"
         android:layout_width="wrap_content"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
         android:text="@string/camera_source"
         android:labelFor="@+id/edit_camera_source" />
 
     <EditText
         android:id="@+id/edit_camera_source"
         android:inputType="text"
-        android:layout_width="wrap_content"
-        android:layout_height="match_parent"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
         android:ems="10"
         android:text="" />
     </LinearLayout>
 
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
     <Button
         android:id="@+id/add_camera_dest"
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:labelFor="@+id/camera_dest"
         android:text="@string/add_camera_dest" />
+    <EditText
+        android:id="@+id/camera_dest_name"
+        android:inputType="text"
+        android:hint="@string/camera_dest_name"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ems="10"
+        android:text="" />
+    </LinearLayout>
     <ExpandableListView
         android:id="@+id/edit_camera_dests"
         style="@android:style/Widget.ExpandableListView"

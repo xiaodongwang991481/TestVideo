@@ -112,7 +112,7 @@ class CameraDestAdapter(val context: Context, val cameraDests: ArrayList<CameraD
         val currentItem: CameraDest? = getGroup(groupPosition) as? CameraDest
         val view: View? = convertView ?: LayoutInflater.from(context).
                 inflate(R.layout.camera_dest_layout, parent, false)
-        val itemName: TextView? = view?.findViewById(R.id.edit_camera_dest)
+        val itemName: TextView? = view?.findViewById(R.id.camera_dest)
         itemName?.let {
             currentItem?.let {
                 itemName.setText(currentItem.name)

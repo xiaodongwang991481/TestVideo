@@ -4,6 +4,7 @@ import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
 import kotlinx.android.synthetic.main.activity_main.*
 import android.content.Intent
+import android.os.PersistableBundle
 import android.util.Log
 import android.view.View
 import android.widget.AdapterView
@@ -38,7 +39,7 @@ class MainActivity : AppCompatActivity() {
 
         // Example of a call to a native method
         // sample_text.text = stringFromJNI()
-        Log.i(LOGTAG, "activiy initialized")
+        Log.i(LOGTAG, "main activiy initialized")
         initCameraList()
         Log.i(LOGTAG, "camera list is set")
         add_camera.setOnClickListener(AddCamera())
@@ -50,6 +51,19 @@ class MainActivity : AppCompatActivity() {
         Log.i(LOGTAG, "add camera")
         val intent = Intent(this, CameraEditActivity::class.java)
         this.startActivityForResult(intent, 1)
+    }
+
+    override fun onSaveInstanceState(outState: Bundle?, outPersistentState: PersistableBundle?) {
+        super.onSaveInstanceState(outState, outPersistentState)
+        Log.i(LOGTAG, "save state")
+        outState?.putParcelableArrayList("cameras", cameraList)
+    }
+
+    override fun onRestoreInstanceState(savedInstanceState: Bundle?) {
+        super.onRestoreInstanceState(savedInstanceState)
+        Log.i(LOGTAG, "restore state")
+        cameraList = savedInstanceState?.getParcelableArrayList("cameras") ?: ArrayList<Camera>()
+        camerasAdapter.notifyDataSetChanged()
     }
 
     fun updateCamera(camera: Camera) {
