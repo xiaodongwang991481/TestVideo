@@ -31,6 +31,7 @@ class CameraAdapter(val context: Context, val cameras: ArrayList<Camera>) : Base
             }
         }
     }
+
     override fun getCount() : Int {
         return cameras.size
     }

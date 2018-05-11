@@ -19,8 +19,8 @@ data class CameraDestProperty(val name: String, val value: String) : Parcelable 
     }
 
     override fun equals(other: Any?): Boolean {
-        val otherCameraDestProperty = other as? CameraDestProperty
-        if (otherCameraDestProperty.name == null) {
+        val otherCameraDestProperty: CameraDestProperty? = other as? CameraDestProperty
+        if (otherCameraDestProperty == null) {
             return false
         } else {
             return name == otherCameraDestProperty.name

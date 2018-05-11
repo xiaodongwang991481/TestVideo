@@ -56,11 +56,11 @@ class MainActivity : AppCompatActivity() {
         Log.i(LOGTAG,"update camera ${camera.name} = ${camera.source}")
         var found = false
         for (i in cameraList.indices) {
-            var existing_camera = cameraList[i]
-            if (existing_camera.name == camera.name) {
-                existing_camera = camera
-                cameraList[i] = existing_camera
-                Log.i(LOGTAG, "update existing camera ${existing_camera.name} = ${existing_camera.source}")
+            var existingCamera = cameraList[i]
+            if (existingCamera.name == camera.name) {
+                existingCamera = camera
+                cameraList[i] = existingCamera
+                Log.i(LOGTAG, "update existing camera ${existingCamera.name} = ${existingCamera.source}")
                 found = true
                 break
             }

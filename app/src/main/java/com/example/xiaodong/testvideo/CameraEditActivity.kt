@@ -57,7 +57,8 @@ class CameraEditActivity : AppCompatActivity() {
         }
         val camera = Camera(
                 name=edit_camera_name.text.toString(),
-                source=edit_camera_source.text.toString()
+                source=edit_camera_source.text.toString(),
+                dests=cameraDests
             )
         Log.i(LOGTAG, "set camera to ${camera.name}=${camera.source}")
         val intent = Intent()
@@ -68,25 +69,71 @@ class CameraEditActivity : AppCompatActivity() {
 
     fun onButtonClickAddDest() {
         Log.i(LOGTAG, "add camera dest")
-        if (camera_dest.text.isNullOrBlank()) {
-            Log.e(LOGTAG, "camera dest is empty")
-            return
+        val intent = Intent(this, CameraDestEditActivity::class.java)
+        this.startActivityForResult(intent, 1)
+    }
+
+    fun onButtonClickEdit(cameraDest: CameraDest) {
+        Log.i(LOGTAG, "edit camera dest ${cameraDest.name}")
+        val intent = Intent(this, CameraDestEditActivity::class.java)
+        intent.putExtra("cameraDest", cameraDest)
+        this.startActivityForResult(intent, 0)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        data?.let {
+            val cameraDest: CameraDest? = it.getParcelableExtra("cameraDest") as? CameraDest
+            if (cameraDest != null) {
+                when (requestCode) {
+                    0 -> updateCameraDest(cameraDest)
+                    1 -> addCameraDest(cameraDest)
+                    else -> {
+                        Log.e(LOGTAG, "unknown request code $requestCode")
+                    }
+                }
+            } else {
+                Log.e(LOGTAG, "cameraDest is null")
+            }
         }
-        val cameraDest = CameraDest(camera_dest.text.toString())
-        Log.i(LOGTAG, "add camera dest ${cameraDest.name}")
+    }
+
+    fun updateCameraDest(cameraDest: CameraDest) {
+        Log.i(LOGTAG,"update cameraDest ${cameraDest.name}")
+        var found = false
+        for (i in cameraDests.indices) {
+            var existingCameraDest = cameraDests[i]
+            if (existingCameraDest.name == cameraDest.name) {
+                existingCameraDest = cameraDest
+                cameraDests[i] = existingCameraDest
+                Log.i(LOGTAG, "update existing camera dest ${existingCameraDest.name}")
+                found = true
+                break
+            }
+        }
+        if (!found) {
+            Log.e(LOGTAG, "cameradest ${cameraDest.name} is not found in existing camera dests")
+        }
+        cameraDestAdapter.notifyDataSetChanged()
+    }
+
+    fun addCameraDest(cameraDest: CameraDest) {
+        Log.i(LOGTAG,"add camera dest ${cameraDest.name}")
         cameraDests.add(cameraDest)
         cameraDestAdapter.notifyDataSetChanged()
     }
 
-    fun onButtonClickAddProperty(val cameraDest: CameraDest) {
-    }
-
-    fun onButtonClickDelete(val cameraDest: CameraDest) {
+    fun onButtonClickDelete(cameraDest: CameraDest) {
+        Log.i(LOGTAG, "delete camera dest ${cameraDest.name}")
         cameraDests.remove(cameraDest)
         cameraDestAdapter.notifyDataSetChanged()
     }
 
-    fun onButtonClickDeleteProperty(val cameraDest: CameraDest, val cameraDestProperty: CameraDestProperty) {
+    fun onButtonClickDeleteProperty(cameraDest: CameraDest, cameraDestProperty: CameraDestProperty) {
+        Log.i(
+                LOGTAG,
+                "delete camera dest ${cameraDest.name} property ${cameraDestProperty.name}=${cameraDestProperty.value}"
+        )
         cameraDest.dest_properties.remove(cameraDestProperty)
         cameraDestAdapter.notifyDataSetChanged()
     }

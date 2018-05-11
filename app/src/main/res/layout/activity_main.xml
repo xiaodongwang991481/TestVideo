@@ -10,7 +10,7 @@
 
     <Button
         android:id="@+id/add_camera"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:clickable="true"
         android:text="@string/add_camera" />
@@ -20,7 +20,7 @@
         style="@style/Widget.AppCompat.ListView"
         android:padding="2dp"
         android:background="@drawable/background"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:focusable="true" />
 </LinearLayout>
