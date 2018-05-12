@@ -14,7 +14,6 @@ class CameraDestEditActivity : AppCompatActivity() {
 
     private val LOGTAG = "CameraDestEditActivity"
     private var cameraDestProperties = ArrayList<CameraDestProperty>()
-    private var cameraDestName = ""
     private var cameraDestPropertyAdapter = CameraDestPropertyAdapter(this, cameraDestProperties)
 
     inner class SaveCameraDest: View.OnClickListener {
@@ -29,40 +28,66 @@ class CameraDestEditActivity : AppCompatActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        Log.i(LOGTAG, "start activity")
+    }
+
+    override fun onStop() {
+        super.onStop()
+        Log.i(LOGTAG, "stop activity")
+    }
+
+    override fun onResume() {
+        super.onResume()
+        Log.i(LOGTAG, "resume activity")
+    }
+
+    override fun onPause() {
+        super.onPause()
+        Log.i(LOGTAG, "pause activity")
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_camera_dest_edit)
-        Log.i(LOGTAG, "camera dest activity initialized")
+        onRestoreInstanceState(savedInstanceState)
+        var address = Integer.toHexString(System.identityHashCode(this))
+        Log.i(LOGTAG, "camera dest activity initialized with state = $savedInstanceState on $address")
         if (intent.hasExtra("cameraDest")) {
             var cameraDest: CameraDest = intent.getParcelableExtra("cameraDest")
             Log.i(LOGTAG, "get camera dest ${cameraDest.name}")
-            cameraDestName = cameraDest.name
+            var cameraDestName = cameraDest.name
             edit_camera_dest_name.setText(cameraDestName)
             edit_camera_dest_name.focusable = 0
             edit_camera_dest_name.setEnabled(false)
             edit_camera_dest_name.setTextColor(Color.GRAY)
-            add_camera_dest_property.setOnClickListener(AddCameraDestProperty())
             cameraDestProperties = cameraDest.dest_properties
             cameraDestPropertyAdapter = CameraDestPropertyAdapter(this, cameraDestProperties)
             camera_dest_properties.setAdapter(cameraDestPropertyAdapter)
         }
+        add_camera_dest_property.setOnClickListener(AddCameraDestProperty())
         edit_camera_dest_save.setOnClickListener(SaveCameraDest())
     }
 
     override fun onSaveInstanceState(outState: Bundle?) {
-        super.onSaveInstanceState(outState)
-        Log.i(LOGTAG, "save state")
-        cameraDestName = edit_camera_dest_name.text.toString()
+        outState?.let {
+            super.onSaveInstanceState(outState)
+        }
+        var cameraDestName = edit_camera_dest_name.text.toString()
+        Log.i(LOGTAG, "save state camera dest name = $cameraDestName")
         outState?.putString("camera_dest_name", cameraDestName)
         outState?.putParcelableArrayList("camera_dest_properties", cameraDestProperties)
     }
 
     override fun onRestoreInstanceState(savedInstanceState: Bundle?) {
-        super.onRestoreInstanceState(savedInstanceState)
-        Log.i(LOGTAG, "restore state")
-        cameraDestName = savedInstanceState?.getString(
-                "camera_dest_properties"
+        savedInstanceState?.let {
+            super.onRestoreInstanceState(savedInstanceState)
+        }
+        var cameraDestName = savedInstanceState?.getString(
+                "camera_dest_name"
         ) ?: ""
+        Log.i(LOGTAG, "restore state camera dest name = $cameraDestName")
         edit_camera_dest_name.setText(cameraDestName
         )
         cameraDestProperties = savedInstanceState?.getParcelableArrayList(
@@ -78,7 +103,7 @@ class CameraDestEditActivity : AppCompatActivity() {
             Log.e(LOGTAG, "camera dest name is empty")
             return
         }
-        cameraDestName = edit_camera_dest_name.text.toString()
+        var cameraDestName = edit_camera_dest_name.text.toString()
         val cameraDest = CameraDest(
                 name=cameraDestName,
                 dest_properties = cameraDestProperties

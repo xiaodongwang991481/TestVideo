@@ -13,8 +13,6 @@ class CameraEditActivity : AppCompatActivity() {
 
     private val LOGTAG = "CameraEditActivity"
     private var cameraDests = ArrayList<CameraDest>()
-    private var cameraName = ""
-    private var cameraSource = ""
     private var cameraDestAdapter = CameraDestAdapter(this, cameraDests)
 
     inner class SaveCamera : View.OnClickListener {
@@ -29,51 +27,70 @@ class CameraEditActivity : AppCompatActivity() {
         }
     }
 
-    fun saveCamera() {
-
+    override fun onStart() {
+        super.onStart()
+        Log.i(LOGTAG, "start activity")
     }
 
-    fun loadCamera() {
+    override fun onStop() {
+        super.onStop()
+        Log.i(LOGTAG, "stop activity")
+    }
 
+    override fun onResume() {
+        super.onResume()
+        Log.i(LOGTAG, "resume activity")
+    }
+
+    override fun onPause() {
+        super.onPause()
+        Log.i(LOGTAG, "pause activity")
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_camera_edit)
-        Log.i(LOGTAG, "camera edit activity initialized")
+        onRestoreInstanceState(savedInstanceState)
+        var address = Integer.toHexString(System.identityHashCode(this))
+        Log.i(LOGTAG, "camera edit activity initialized with state = $savedInstanceState on $address")
         if (intent.hasExtra("camera")) {
             val camera: Camera = intent.getParcelableExtra("camera")
             Log.i(LOGTAG, "get camera ${camera.name}=${camera.source}")
-            cameraName = camera.name
-            cameraSource = camera.source
+            var cameraName = camera.name
+            var cameraSource = camera.source
             edit_camera_name.setText(cameraName)
             edit_camera_name.focusable = 0
             edit_camera_name.setEnabled(false)
             edit_camera_name.setTextColor(Color.GRAY)
             edit_camera_source.setText(cameraSource)
-            add_camera_dest.setOnClickListener(AddCameraDest())
             cameraDests = camera.dests
             cameraDestAdapter = CameraDestAdapter(this, cameraDests)
             edit_camera_dests.setAdapter(cameraDestAdapter)
         }
+        add_camera_dest.setOnClickListener(AddCameraDest())
         edit_camera_save.setOnClickListener(SaveCamera())
     }
 
     override fun onSaveInstanceState(outState: Bundle?) {
-        super.onSaveInstanceState(outState)
-        Log.i(LOGTAG, "save state")
-        cameraName = edit_camera_name.text.toString()
-        cameraSource = edit_camera_source.text.toString()
+        outState?.let {
+            super.onSaveInstanceState(outState)
+        }
+
+        var cameraName = edit_camera_name.text.toString()
+        var cameraSource = edit_camera_source.text.toString()
+        Log.i(LOGTAG, "save state camera name = $cameraName, camera source = $cameraSource")
         outState?.putString("name", cameraName)
         outState?.putString("source", cameraSource)
         outState?.putParcelableArrayList("camera_dests", cameraDests)
     }
 
     override fun onRestoreInstanceState(savedInstanceState: Bundle?) {
-        super.onRestoreInstanceState(savedInstanceState)
-        Log.i(LOGTAG, "restore state")
-        cameraName = savedInstanceState?.getString("name") ?: ""
-        cameraSource = savedInstanceState?.getString("source") ?: ""
+        savedInstanceState?.let {
+            super.onRestoreInstanceState(savedInstanceState)
+        }
+        var cameraName = savedInstanceState?.getString("name") ?: ""
+        var cameraSource = savedInstanceState?.getString("source") ?: ""
+        Log.i(LOGTAG, "restore state camera name = $cameraName, camera source = $cameraSource")
         edit_camera_name.setText(cameraName)
         edit_camera_source.setText(cameraSource)
         cameraDests = savedInstanceState?.getParcelableArrayList(
@@ -93,8 +110,8 @@ class CameraEditActivity : AppCompatActivity() {
             Log.e(LOGTAG, "camera source is empty")
             return
         }
-        cameraName = edit_camera_name.text.toString()
-        cameraSource = edit_camera_source.text.toString()
+        var cameraName = edit_camera_name.text.toString()
+        var cameraSource = edit_camera_source.text.toString()
         val camera = Camera(
                 name=cameraName,
                 source=cameraSource,

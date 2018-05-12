@@ -36,15 +36,13 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-
+        onRestoreInstanceState(savedInstanceState)
         // Example of a call to a native method
         // sample_text.text = stringFromJNI()
-        Log.i(LOGTAG, "main activiy initialized")
-        initCameraList()
-        Log.i(LOGTAG, "camera list is set")
+        var address = Integer.toHexString(System.identityHashCode(this))
+        Log.i(LOGTAG, "main activiy initialized with state = $savedInstanceState on ${address}")
         add_camera.setOnClickListener(AddCamera())
         cameras.setOnItemClickListener(ShowCamera())
-        cameras.setAdapter(camerasAdapter)
     }
 
     fun onButtonClickAdd() {
@@ -53,17 +51,44 @@ class MainActivity : AppCompatActivity() {
         this.startActivityForResult(intent, 1)
     }
 
-    override fun onSaveInstanceState(outState: Bundle?, outPersistentState: PersistableBundle?) {
-        super.onSaveInstanceState(outState, outPersistentState)
+    override fun onSaveInstanceState(outState: Bundle?) {
+        outState?.let {
+            super.onSaveInstanceState(outState)
+        }
         Log.i(LOGTAG, "save state")
         outState?.putParcelableArrayList("cameras", cameraList)
     }
 
     override fun onRestoreInstanceState(savedInstanceState: Bundle?) {
-        super.onRestoreInstanceState(savedInstanceState)
+        savedInstanceState?.let {
+            super.onRestoreInstanceState(savedInstanceState)
+        }
         Log.i(LOGTAG, "restore state")
-        cameraList = savedInstanceState?.getParcelableArrayList("cameras") ?: ArrayList<Camera>()
-        camerasAdapter.notifyDataSetChanged()
+        cameraList = savedInstanceState?.getParcelableArrayList("cameras") ?: getInitialCameraList()
+        camerasAdapter = CameraAdapter(
+                this, cameraList
+        )
+        cameras.setAdapter(camerasAdapter)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        Log.i(LOGTAG, "start activity")
+    }
+
+    override fun onStop() {
+        super.onStop()
+        Log.i(LOGTAG, "stop activity")
+    }
+
+    override fun onResume() {
+        super.onResume()
+        Log.i(LOGTAG, "resume activity")
+    }
+
+    override fun onPause() {
+        super.onPause()
+        Log.i(LOGTAG, "pause activity")
     }
 
     fun updateCamera(camera: Camera) {
@@ -126,8 +151,10 @@ class MainActivity : AppCompatActivity() {
         Log.i(LOGTAG, "show camera ${camera.name}")
     }
 
-    private fun initCameraList() {
+    private fun getInitialCameraList() : ArrayList<Camera> {
+        var cameraList = ArrayList<Camera>()
         cameraList.add(Camera(name="test1", source="rtsp://"))
+        return cameraList
     }
     /**
      * A native method that is implemented by the 'native-lib' native library,
