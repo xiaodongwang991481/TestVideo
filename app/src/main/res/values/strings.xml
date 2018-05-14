@@ -3,18 +3,18 @@
     <string name="add_camera">Add Camera</string>
     <string name="edit_camera">Edit</string>
     <string name="delete_camera">Delete</string>
-    <string name="camera_name">Name</string>
-    <string name="camera_source">Source</string>
-    <string name="camera_dests">Dests</string>
-    <string name="camera_dest_name">Name</string>
+    <string name="camera_name">Camera Name</string>
+    <string name="camera_source">Camera Source</string>
+    <string name="camera_dests">Camera Dests</string>
+    <string name="camera_dest_name">Camera Dest Name</string>
     <string name="save_camera">Save</string>
     <string name="save_camera_dest">Save</string>
     <string name="delete_camera_dest">Delete</string>
     <string name="edit_camera_dest">Edit</string>
-    <string name="add_camera_dest">Add Dest</string>
-    <string name="add_camera_dest_property">Add Property</string>
+    <string name="add_camera_dest">Add Camera Dest</string>
+    <string name="add_camera_dest_property">Add Camera Dest Property</string>
     <string name="edit_camera_dest_property">Edit</string>
     <string name="delete_camera_dest_property">Delete</string>
-    <string name="camera_dest_property_name">Name</string>
-    <string name="camera_dest_property_value">Value</string>
+    <string name="camera_dest_property_name">Camera Dest Property Name</string>
+    <string name="camera_dest_property_value">Camera Dest Property Value</string>
 </resources>

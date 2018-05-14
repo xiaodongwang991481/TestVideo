@@ -18,6 +18,10 @@ data class CameraDest(
         parcel.writeTypedList(dest_properties)
     }
 
+    override fun toString(): String {
+        return dest_properties.joinToString(prefix="$name[", postfix="]")
+    }
+
     override fun describeContents(): Int {
         return 0
     }

@@ -14,6 +14,10 @@ data class CameraDestProperty(val name: String, val value: String) : Parcelable 
         parcel.writeString(value)
     }
 
+    override fun toString(): String {
+        return "$name=$value"
+    }
+
     override fun describeContents(): Int {
         return 0
     }
