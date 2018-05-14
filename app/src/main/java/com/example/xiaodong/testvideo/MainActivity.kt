@@ -27,7 +27,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private var cameraList = ArrayList<Camera>()
+    private var cameraList = getInitialCameraList()
     private var camerasAdapter = CameraAdapter(
             this, cameraList
     )
@@ -36,11 +36,10 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        onRestoreInstanceState(savedInstanceState)
         // Example of a call to a native method
         // sample_text.text = stringFromJNI()
-        var address = Integer.toHexString(System.identityHashCode(this))
-        Log.i(LOGTAG, "main activiy initialized with state = $savedInstanceState on ${address}")
+        Log.i(LOGTAG, "main activiy initialized with state = $savedInstanceState")
+        cameras.setAdapter(camerasAdapter)
         add_camera.setOnClickListener(AddCamera())
         cameras.setOnItemClickListener(ShowCamera())
     }
@@ -92,14 +91,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun updateCamera(camera: Camera) {
-        Log.i(LOGTAG,"update camera ${camera.name} = ${camera.source}")
+        Log.i(LOGTAG,"update camera $camera")
         var found = false
         for (i in cameraList.indices) {
             var existingCamera = cameraList[i]
             if (existingCamera.name == camera.name) {
                 existingCamera = camera
                 cameraList[i] = existingCamera
-                Log.i(LOGTAG, "update existing camera ${existingCamera.name} = ${existingCamera.source}")
+                Log.i(LOGTAG, "update existing camera $existingCamera")
                 found = true
                 break
             }
@@ -111,7 +110,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun addCamera(camera: Camera) {
-        Log.i(LOGTAG,"add camera ${camera.name} = ${camera.source}")
+        Log.i(LOGTAG,"add camera $camera")
         cameraList.add(camera)
         camerasAdapter.notifyDataSetChanged()
     }
@@ -135,20 +134,20 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun onButtonClickEdit(camera: Camera) {
-        Log.i(LOGTAG, " edit camera ${camera.name}")
+        Log.i(LOGTAG, " edit camera $camera")
         val intent = Intent(this, CameraEditActivity::class.java)
         intent.putExtra("camera", camera)
         this.startActivityForResult(intent, 0)
     }
 
     fun onButtonClickDelete(camera: Camera) {
-        Log.i(LOGTAG, "delete camera ${camera.name}")
+        Log.i(LOGTAG, "delete camera $camera")
         cameraList.remove(camera)
         camerasAdapter.notifyDataSetChanged()
     }
 
     fun onItemClickShow(camera: Camera) {
-        Log.i(LOGTAG, "show camera ${camera.name}")
+        Log.i(LOGTAG, "show camera $camera")
     }
 
     private fun getInitialCameraList() : ArrayList<Camera> {

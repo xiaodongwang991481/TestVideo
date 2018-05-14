@@ -12,16 +12,6 @@ import android.widget.TextView
 class CameraDestAdapter(val context: Context, val cameraDests: ArrayList<CameraDest>) : BaseExpandableListAdapter() {
     val app: CameraEditActivity? = context as? CameraEditActivity
 
-    inner class EditCameraDest(val cameraDest: CameraDest) : View.OnClickListener {
-        override fun onClick(v: View?) {
-            v?.let {
-                app?.let {
-                    app.onButtonClickEdit(cameraDest)
-                }
-            }
-        }
-    }
-
     inner class DeleteCameraDest(val cameraDest: CameraDest) : View.OnClickListener {
         override fun onClick(v: View?) {
             v?.let {
@@ -29,6 +19,17 @@ class CameraDestAdapter(val context: Context, val cameraDests: ArrayList<CameraD
                     app.onButtonClickDelete(cameraDest)
                 }
             }
+        }
+    }
+
+    inner class EditCameraDest(val cameraDest: CameraDest) : View.OnLongClickListener {
+        override fun onLongClick(v: View?): Boolean {
+            v?.let {
+                app?.let {
+                    app.onButtonClickEdit(cameraDest)
+                }
+            }
+            return true
         }
     }
 
@@ -118,16 +119,15 @@ class CameraDestAdapter(val context: Context, val cameraDests: ArrayList<CameraD
                 itemName.setText(currentItem.name)
             }
         }
-        val editItem: Button? = view?.findViewById(R.id.edit_camera_dest)
-        editItem?.let {
-            currentItem?.let {
-                editItem.setOnClickListener(EditCameraDest(currentItem))
-            }
-        }
         val deleteItem: Button? = view?.findViewById(R.id.delete_camera_dest)
         deleteItem?.let {
             currentItem?.let {
                 deleteItem.setOnClickListener(DeleteCameraDest(currentItem))
+            }
+        }
+        view?.let {
+            currentItem?.let {
+                view?.setOnLongClickListener(EditCameraDest(currentItem))
             }
         }
         return view

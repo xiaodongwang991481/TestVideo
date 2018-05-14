@@ -23,6 +23,10 @@ data class Camera(val name: String, val source: String,
         return 0
     }
 
+    override fun toString(): String {
+        return dests.joinToString(prefix="name=$name, source=$source, [", postfix = "]")
+    }
+
     override fun equals(other: Any?): Boolean {
         val otherCamera = other as? Camera
         if (otherCamera == null) {

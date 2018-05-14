@@ -12,13 +12,14 @@ class CameraAdapter(val context: Context, val cameras: ArrayList<Camera>) : Base
 
     val app: MainActivity? = context as? MainActivity
 
-    inner class EditCamera(val camera: Camera) : View.OnClickListener {
-        override fun onClick(v: View?) {
+    inner class EditCamera(val camera: Camera) : View.OnLongClickListener {
+        override fun onLongClick(v: View?): Boolean {
             v?.let {
                 app?.let {
                     app.onButtonClickEdit(camera)
                 }
             }
+            return true
         }
     }
 
@@ -54,16 +55,16 @@ class CameraAdapter(val context: Context, val cameras: ArrayList<Camera>) : Base
                 itemName.setText(currentItem.name)
             }
         }
-        val editItem: Button? = view?.findViewById(R.id.edit_camera)
-        editItem?.let {
-            currentItem?.let {
-                editItem.setOnClickListener(EditCamera(currentItem))
-            }
-        }
+
         val deleteItem: Button? = view?.findViewById(R.id.delete_camera)
         deleteItem?.let {
             currentItem?.let {
                 deleteItem.setOnClickListener(DeleteCamera(currentItem))
+            }
+        }
+        view?.let {
+            currentItem?.let {
+                view.setOnLongClickListener(EditCamera(currentItem))
             }
         }
         return view

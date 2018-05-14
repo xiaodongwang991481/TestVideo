@@ -50,12 +50,10 @@ class CameraEditActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_camera_edit)
-        onRestoreInstanceState(savedInstanceState)
-        var address = Integer.toHexString(System.identityHashCode(this))
-        Log.i(LOGTAG, "camera edit activity initialized with state = $savedInstanceState on $address")
+        Log.i(LOGTAG, "camera edit activity initialized with state = $savedInstanceState")
         if (intent.hasExtra("camera")) {
             val camera: Camera = intent.getParcelableExtra("camera")
-            Log.i(LOGTAG, "get camera ${camera.name}=${camera.source}")
+            Log.i(LOGTAG, "get camera $camera")
             var cameraName = camera.name
             var cameraSource = camera.source
             edit_camera_name.setText(cameraName)
@@ -65,8 +63,8 @@ class CameraEditActivity : AppCompatActivity() {
             edit_camera_source.setText(cameraSource)
             cameraDests = camera.dests
             cameraDestAdapter = CameraDestAdapter(this, cameraDests)
-            edit_camera_dests.setAdapter(cameraDestAdapter)
         }
+        edit_camera_dests.setAdapter(cameraDestAdapter)
         add_camera_dest.setOnClickListener(AddCameraDest())
         edit_camera_save.setOnClickListener(SaveCamera())
     }
@@ -102,11 +100,11 @@ class CameraEditActivity : AppCompatActivity() {
 
     fun onButtonClickSave() {
         Log.i(LOGTAG, "save camera")
-        if (edit_camera_name.text.isNullOrBlank()) {
+        if (edit_camera_name == null || edit_camera_name.text.isNullOrBlank()) {
             Log.e(LOGTAG, "camera name is empty")
             return
         }
-        if (edit_camera_source.text.isNullOrBlank()) {
+        if (edit_camera_source == null || edit_camera_source.text.isNullOrBlank()) {
             Log.e(LOGTAG, "camera source is empty")
             return
         }
@@ -117,7 +115,7 @@ class CameraEditActivity : AppCompatActivity() {
                 source=cameraSource,
                 dests=cameraDests
             )
-        Log.i(LOGTAG, "set camera to ${camera.name}=${camera.source}")
+        Log.i(LOGTAG, "set camera to $camera")
         val intent = Intent()
         intent.putExtra("camera", camera)
         setResult(RESULT_OK, intent)
@@ -126,7 +124,7 @@ class CameraEditActivity : AppCompatActivity() {
 
     fun onButtonClickAddDest() {
         Log.i(LOGTAG, "add camera dest")
-        if (camera_dest_name.text.isNullOrBlank()) {
+        if (camera_dest_name == null || camera_dest_name.text.isNullOrBlank()) {
             Log.e(LOGTAG, "camera dest is empty")
             return
         }
@@ -134,7 +132,7 @@ class CameraEditActivity : AppCompatActivity() {
     }
 
     fun onButtonClickEdit(cameraDest: CameraDest) {
-        Log.i(LOGTAG, "edit camera dest ${cameraDest.name}")
+        Log.i(LOGTAG, "edit camera dest $cameraDest")
         val intent = Intent(this, CameraDestEditActivity::class.java)
         intent.putExtra("cameraDest", cameraDest)
         this.startActivityForResult(intent, 0)
@@ -159,14 +157,14 @@ class CameraEditActivity : AppCompatActivity() {
     }
 
     fun updateCameraDest(cameraDest: CameraDest) {
-        Log.i(LOGTAG,"update cameraDest ${cameraDest.name}")
+        Log.i(LOGTAG,"update cameraDest $cameraDest")
         var found = false
         for (i in cameraDests.indices) {
             var existingCameraDest = cameraDests[i]
             if (existingCameraDest.name == cameraDest.name) {
                 existingCameraDest = cameraDest
                 cameraDests[i] = existingCameraDest
-                Log.i(LOGTAG, "update existing camera dest ${existingCameraDest.name}")
+                Log.i(LOGTAG, "update existing camera dest $existingCameraDest")
                 found = true
                 break
             }
@@ -178,13 +176,13 @@ class CameraEditActivity : AppCompatActivity() {
     }
 
     fun addCameraDest(cameraDest: CameraDest) {
-        Log.i(LOGTAG,"add camera dest ${cameraDest.name}")
+        Log.i(LOGTAG,"add camera dest $cameraDest")
         cameraDests.add(cameraDest)
         cameraDestAdapter.notifyDataSetChanged()
     }
 
     fun onButtonClickDelete(cameraDest: CameraDest) {
-        Log.i(LOGTAG, "delete camera dest ${cameraDest.name}")
+        Log.i(LOGTAG, "delete camera dest $cameraDest")
         cameraDests.remove(cameraDest)
         cameraDestAdapter.notifyDataSetChanged()
     }
@@ -192,7 +190,7 @@ class CameraEditActivity : AppCompatActivity() {
     fun onButtonClickDeleteProperty(cameraDest: CameraDest, cameraDestProperty: CameraDestProperty) {
         Log.i(
                 LOGTAG,
-                "delete camera dest ${cameraDest.name} property ${cameraDestProperty.name}=${cameraDestProperty.value}"
+                "delete camera dest ${cameraDest.name} property $cameraDestProperty"
         )
         cameraDest.dest_properties.remove(cameraDestProperty)
         cameraDestAdapter.notifyDataSetChanged()

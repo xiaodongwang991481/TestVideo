@@ -51,21 +51,18 @@ class CameraDestEditActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_camera_dest_edit)
-        onRestoreInstanceState(savedInstanceState)
-        var address = Integer.toHexString(System.identityHashCode(this))
-        Log.i(LOGTAG, "camera dest activity initialized with state = $savedInstanceState on $address")
+        Log.i(LOGTAG, "camera dest activity initialized with state = $savedInstanceState")
         if (intent.hasExtra("cameraDest")) {
             var cameraDest: CameraDest = intent.getParcelableExtra("cameraDest")
-            Log.i(LOGTAG, "get camera dest ${cameraDest.name}")
+            Log.i(LOGTAG, "get camera dest $cameraDest")
             var cameraDestName = cameraDest.name
             edit_camera_dest_name.setText(cameraDestName)
             edit_camera_dest_name.focusable = 0
             edit_camera_dest_name.setEnabled(false)
             edit_camera_dest_name.setTextColor(Color.GRAY)
             cameraDestProperties = cameraDest.dest_properties
-            cameraDestPropertyAdapter = CameraDestPropertyAdapter(this, cameraDestProperties)
-            camera_dest_properties.setAdapter(cameraDestPropertyAdapter)
         }
+        camera_dest_properties.setAdapter(cameraDestPropertyAdapter)
         add_camera_dest_property.setOnClickListener(AddCameraDestProperty())
         edit_camera_dest_save.setOnClickListener(SaveCameraDest())
     }
@@ -98,17 +95,16 @@ class CameraDestEditActivity : AppCompatActivity() {
     }
 
     fun onButtonClickSave() {
-        Log.i(LOGTAG, "save camera dest")
-        if (edit_camera_dest_name.text.isNullOrBlank()) {
+        if (edit_camera_dest_name == null || edit_camera_dest_name.text.isNullOrBlank()) {
             Log.e(LOGTAG, "camera dest name is empty")
             return
         }
         var cameraDestName = edit_camera_dest_name.text.toString()
         val cameraDest = CameraDest(
                 name=cameraDestName,
-                dest_properties = cameraDestProperties
+                dest_properties=cameraDestProperties
         )
-        Log.i(LOGTAG, "set camera dest to ${cameraDest.name}")
+        Log.i(LOGTAG, "set camera dest to $cameraDest")
         val intent = Intent()
         intent.putExtra("cameraDest", cameraDest)
         setResult(RESULT_OK, intent)
@@ -117,30 +113,36 @@ class CameraDestEditActivity : AppCompatActivity() {
 
     fun onButtonClickAdd() {
         Log.i(LOGTAG, "add camera dest property")
-        if (camera_dest_property_name.text.isNullOrBlank()) {
+        if (
+                add_camera_dest_property_name == null ||
+                add_camera_dest_property_name.text.isNullOrBlank()
+        ) {
             Log.e(LOGTAG, "camera dest property name is empty")
             return
         }
-        if (camera_dest_property_value.text.isNullOrBlank()) {
+        if (
+                add_camera_dest_property_value == null ||
+                add_camera_dest_property_value.text.isNullOrBlank()
+        ) {
             Log.e(LOGTAG, "camera dest property value is empty")
             return
         }
         addCameraDestProperty(
                 CameraDestProperty(
-                        camera_dest_property_name.text.toString(),
-                        camera_dest_property_value.text.toString()
+                        add_camera_dest_property_name.text.toString(),
+                        add_camera_dest_property_value.text.toString()
                 )
         )
     }
 
     fun addCameraDestProperty(cameraDestProperty: CameraDestProperty) {
-        Log.i(LOGTAG,"add camera dest property ${cameraDestProperty.name}=${cameraDestProperty.value}")
+        Log.i(LOGTAG,"add camera dest property $cameraDestProperty")
         cameraDestProperties.add(cameraDestProperty)
         cameraDestPropertyAdapter.notifyDataSetChanged()
     }
 
     fun onButtonClickDelete(cameraDestProperty: CameraDestProperty) {
-        Log.i(LOGTAG, "delete cameraDestProperty ${cameraDestProperty.name}=${cameraDestProperty.value}")
+        Log.i(LOGTAG, "delete cameraDestProperty $cameraDestProperty")
         cameraDestProperties.remove(cameraDestProperty)
         cameraDestPropertyAdapter.notifyDataSetChanged()
     }
