@@ -12,11 +12,13 @@
         android:id="@+id/camera_dest_property_name"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:background="@color/colorPrimaryDark"
         android:text="" />
     <TextView
         android:id="@+id/camera_dest_property_value"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:background="@color/colorPrimaryDark"
         android:text="" />
 </LinearLayout>
     <Button

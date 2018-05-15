@@ -54,7 +54,7 @@ class CameraDestPropertyAdapter(
                 itemValue.setText(currentItem.value)
             }
         }
-        val deleteItem: Button? = view?.findViewById(R.id.delete_camera) as? Button
+        val deleteItem: Button? = view?.findViewById(R.id.delete_camera_dest_property) as? Button
         deleteItem?.let {
             currentItem?.let {
                 deleteItem.setOnClickListener(DeleteCameraDestProperty(currentItem))

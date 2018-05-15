@@ -6,7 +6,9 @@ import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import android.widget.AdapterView
 import android.widget.EditText
+import android.widget.ExpandableListView
 import kotlinx.android.synthetic.main.activity_camera_edit.*
 
 class CameraEditActivity : AppCompatActivity() {
@@ -24,6 +26,17 @@ class CameraEditActivity : AppCompatActivity() {
     inner class AddCameraDest : View.OnClickListener {
         override fun onClick(v: View?) {
             this@CameraEditActivity.onButtonClickAddDest()
+        }
+    }
+
+    inner class EditCameraDest : AdapterView.OnItemLongClickListener {
+        override fun onItemLongClick(parent: AdapterView<*>?, view: View?, position: Int, id: Long): Boolean {
+            var cameraDest = cameraDests.get(position) as? CameraDest
+            Log.i(LOGTAG, "long click on $cameraDest")
+            cameraDest?.let {
+                this@CameraEditActivity.onButtonClickEdit(cameraDest)
+            }
+            return true
         }
     }
 
@@ -65,6 +78,9 @@ class CameraEditActivity : AppCompatActivity() {
             cameraDestAdapter = CameraDestAdapter(this, cameraDests)
         }
         edit_camera_dests.setAdapter(cameraDestAdapter)
+        edit_camera_dests.setOnItemLongClickListener(EditCameraDest())
+        edit_camera_dests.setIndicatorBounds(0, 10)
+        edit_camera_dests.setChildIndicatorBounds(0, 10)
         add_camera_dest.setOnClickListener(AddCameraDest())
         edit_camera_save.setOnClickListener(SaveCamera())
     }

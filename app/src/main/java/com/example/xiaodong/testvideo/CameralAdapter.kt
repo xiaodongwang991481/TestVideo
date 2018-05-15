@@ -62,11 +62,11 @@ class CameraAdapter(val context: Context, val cameras: ArrayList<Camera>) : Base
                 deleteItem.setOnClickListener(DeleteCamera(currentItem))
             }
         }
-        view?.let {
-            currentItem?.let {
-                view.setOnLongClickListener(EditCamera(currentItem))
-            }
-        }
+        // view?.let {
+        //     currentItem?.let {
+        //         view.setOnLongClickListener(EditCamera(currentItem))
+        //     }
+        // }
         return view
     }
 }

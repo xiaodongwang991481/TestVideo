@@ -61,6 +61,7 @@ class CameraDestEditActivity : AppCompatActivity() {
             edit_camera_dest_name.setEnabled(false)
             edit_camera_dest_name.setTextColor(Color.GRAY)
             cameraDestProperties = cameraDest.dest_properties
+            cameraDestPropertyAdapter = CameraDestPropertyAdapter(this, cameraDestProperties)
         }
         camera_dest_properties.setAdapter(cameraDestPropertyAdapter)
         add_camera_dest_property.setOnClickListener(AddCameraDestProperty())

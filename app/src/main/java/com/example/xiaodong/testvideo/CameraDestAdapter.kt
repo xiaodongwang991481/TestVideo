@@ -1,6 +1,7 @@
 package com.example.xiaodong.testvideo
 
 import android.content.Context
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -8,9 +9,12 @@ import android.widget.BaseExpandableListAdapter
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
+import kotlinx.android.synthetic.main.activity_camera_edit.*
 
 class CameraDestAdapter(val context: Context, val cameraDests: ArrayList<CameraDest>) : BaseExpandableListAdapter() {
     val app: CameraEditActivity? = context as? CameraEditActivity
+
+    val LOGTAG = "CameraDestAdapter"
 
     inner class DeleteCameraDest(val cameraDest: CameraDest) : View.OnClickListener {
         override fun onClick(v: View?) {
@@ -65,7 +69,9 @@ class CameraDestAdapter(val context: Context, val cameraDests: ArrayList<CameraD
             groupPosition: Int, childPosition: Int,
             isLastChild: Boolean, convertView: View?, parent: ViewGroup?): View? {
         val parentItem: CameraDest? =  getGroup(groupPosition) as? CameraDest
+        Log.i(LOGTAG, "get group at $groupPosition: $parentItem")
         val currentItem: CameraDestProperty? = getChild(groupPosition, childPosition) as? CameraDestProperty
+        Log.i(LOGTAG, "get child at $groupPosition/$childPosition: $currentItem")
         val view: View? = convertView ?: LayoutInflater.from(context).
                 inflate(R.layout.camera_dest_property_layout, parent, false)
         val itemName: TextView? = view?.findViewById(R.id.camera_dest_property_name)
@@ -88,11 +94,18 @@ class CameraDestAdapter(val context: Context, val cameraDests: ArrayList<CameraD
                 }
             }
         }
+        view?.let {
+            currentItem?.let {
+                view.setPadding(100, 0,0,0)
+            }
+        }
         return view
     }
 
     override fun getChildrenCount(groupPosition: Int): Int {
-        return cameraDests.get(groupPosition).dest_properties.size
+        val childSize = cameraDests.get(groupPosition).dest_properties.size
+        Log.i(LOGTAG, "child size at group $groupPosition: $childSize")
+        return childSize
     }
 
     override fun getGroup(groupPosition: Int): Any {
@@ -100,7 +113,9 @@ class CameraDestAdapter(val context: Context, val cameraDests: ArrayList<CameraD
     }
 
     override fun getGroupCount(): Int {
-        return cameraDests.size
+        val groupSize = cameraDests.size
+        Log.i(LOGTAG, "group size: $groupSize")
+        return groupSize
     }
 
     override fun getGroupId(groupPosition: Int): Long {
@@ -111,6 +126,7 @@ class CameraDestAdapter(val context: Context, val cameraDests: ArrayList<CameraD
             groupPosition: Int, isExpanded: Boolean, convertView: View?, parent: ViewGroup
     ): View? {
         val currentItem: CameraDest? = getGroup(groupPosition) as? CameraDest
+        Log.i(LOGTAG, "get group $groupPosition: $currentItem")
         val view: View? = convertView ?: LayoutInflater.from(context).
                 inflate(R.layout.camera_dest_layout, parent, false)
         val itemName: TextView? = view?.findViewById(R.id.camera_dest)
@@ -127,7 +143,8 @@ class CameraDestAdapter(val context: Context, val cameraDests: ArrayList<CameraD
         }
         view?.let {
             currentItem?.let {
-                view?.setOnLongClickListener(EditCameraDest(currentItem))
+                // view?.setOnLongClickListener(EditCameraDest(currentItem))
+                view.setPadding(100, 0,0,0)
             }
         }
         return view

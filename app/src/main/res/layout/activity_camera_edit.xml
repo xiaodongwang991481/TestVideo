@@ -65,7 +65,9 @@
         android:gravity="center"
         android:listSelector="#ffffff"
         android:childDivider="#c8c7cc"
-        android:visibility="visible" />
+        android:visibility="visible"
+        android:groupIndicator="@drawable/expandible_group_indicator"
+        android:childIndicator="@drawable/expandible_child_indicator"/>
 
     <Button
         android:id="@+id/edit_camera_save"

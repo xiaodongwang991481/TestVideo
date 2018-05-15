@@ -21,9 +21,21 @@ class MainActivity : AppCompatActivity() {
     inner class ShowCamera : AdapterView.OnItemClickListener {
         override fun onItemClick(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
             val camera: Camera? = cameras.getItemAtPosition(position) as? Camera
+            Log.i(LOGTAG, "item click on $camera")
             camera?.let {
                 this@MainActivity.onItemClickShow(camera)
             }
+        }
+    }
+
+    inner class EditCamera : AdapterView.OnItemLongClickListener {
+        override fun onItemLongClick(parent: AdapterView<*>?, view: View?, position: Int, id: Long): Boolean {
+            val camera: Camera? = cameras.getItemAtPosition(position) as? Camera
+            Log.i(LOGTAG, "item long click on $camera")
+            camera?.let {
+                this@MainActivity.onButtonClickEdit(camera)
+            }
+            return true
         }
     }
 
@@ -42,6 +54,7 @@ class MainActivity : AppCompatActivity() {
         cameras.setAdapter(camerasAdapter)
         add_camera.setOnClickListener(AddCamera())
         cameras.setOnItemClickListener(ShowCamera())
+        cameras.setOnItemLongClickListener(EditCamera())
     }
 
     fun onButtonClickAdd() {
