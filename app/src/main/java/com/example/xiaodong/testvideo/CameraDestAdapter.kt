@@ -96,7 +96,10 @@ class CameraDestAdapter(val context: Context, val cameraDests: ArrayList<CameraD
         }
         view?.let {
             currentItem?.let {
-                view.setPadding(100, 0,0,0)
+                app?.let {
+                    var width = app.childIndicatorWidth
+                    view.setPadding(width, 0, 0, 0)
+                }
             }
         }
         return view
@@ -144,7 +147,10 @@ class CameraDestAdapter(val context: Context, val cameraDests: ArrayList<CameraD
         view?.let {
             currentItem?.let {
                 // view?.setOnLongClickListener(EditCameraDest(currentItem))
-                view.setPadding(100, 0,0,0)
+                app?.let {
+                    var width = app.groupIndicatorWidth
+                    view.setPadding(width, 0, 0, 0)
+                }
             }
         }
         return view

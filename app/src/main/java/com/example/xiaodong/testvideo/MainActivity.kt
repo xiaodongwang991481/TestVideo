@@ -7,6 +7,7 @@ import android.content.Intent
 import android.os.PersistableBundle
 import android.util.Log
 import android.view.View
+import android.view.ViewGroup
 import android.widget.AdapterView
 
 
@@ -31,7 +32,7 @@ class MainActivity : AppCompatActivity() {
     inner class EditCamera : AdapterView.OnItemLongClickListener {
         override fun onItemLongClick(parent: AdapterView<*>?, view: View?, position: Int, id: Long): Boolean {
             val camera: Camera? = cameras.getItemAtPosition(position) as? Camera
-            Log.i(LOGTAG, "item long click on $camera")
+            Log.i(LOGTAG, "item $position long click on $camera")
             camera?.let {
                 this@MainActivity.onButtonClickEdit(camera)
             }
@@ -44,6 +45,7 @@ class MainActivity : AppCompatActivity() {
             this, cameraList
     )
     private val LOGTAG = "mainActivity"
+    private val dbHelper = DBOpenHelper(this)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -51,6 +53,10 @@ class MainActivity : AppCompatActivity() {
         // Example of a call to a native method
         // sample_text.text = stringFromJNI()
         Log.i(LOGTAG, "main activiy initialized with state = $savedInstanceState")
+        var header = layoutInflater.inflate(R.layout.camera_header, cameras, false)
+        cameras.addHeaderView(header)
+        var footer = layoutInflater.inflate(R.layout.listview_footer, cameras, false)
+        cameras.addFooterView(footer)
         cameras.setAdapter(camerasAdapter)
         add_camera.setOnClickListener(AddCamera())
         cameras.setOnItemClickListener(ShowCamera())
@@ -161,11 +167,52 @@ class MainActivity : AppCompatActivity() {
 
     fun onItemClickShow(camera: Camera) {
         Log.i(LOGTAG, "show camera $camera")
+        val intent = Intent(this, VideoPlayActivity::class.java)
+        intent.putExtra("camera", camera)
+        this.startActivity(intent)
     }
 
     private fun getInitialCameraList() : ArrayList<Camera> {
         var cameraList = ArrayList<Camera>()
-        cameraList.add(Camera(name="test1", source="rtsp://"))
+        var db = dbHelper.writableDatabase
+        var cursor = db.query(
+                "camera", null, null,
+                null, null, null, null
+        )
+        if (cursor.moveToFirst()) {
+            do {
+                var name = cursor.getString(cursor.getColumnIndex("name"))
+                var source = cursor.getString(cursor.getColumnIndex("source"))
+                var destCursor = db.query(
+                        "camera_dest", null, "camera_name=?",
+                        arrayOf(name), null, null, null
+                )
+                var dests = ArrayList<CameraDest>()
+                if (destCursor.moveToFirst()) {
+                    do {
+                        var destName = destCursor.getString(destCursor.getColumnIndex("name"))
+                        var destPropertyCursor = db.query(
+                                "camera_dest_property", null, "dest_name=?",
+                                arrayOf(destName), null, null, null
+                        )
+                        var destProperties = ArrayList<CameraDestProperty>()
+                        if (destPropertyCursor.moveToFirst()) {
+                            do {
+                                var destPropertyName = destPropertyCursor.getString(
+                                        destPropertyCursor.getColumnIndex("name")
+                                )
+                                var destPropertyValue = destPropertyCursor.getString(
+                                        destPropertyCursor.getColumnIndex("value")
+                                )
+                                destProperties.add(CameraDestProperty(name=destPropertyName, value=destPropertyValue))
+                            } while (destPropertyCursor.moveToNext())
+                        }
+                        dests.add(CameraDest(name=destName, dest_properties=destProperties))
+                    } while (destCursor.moveToNext())
+                }
+                cameraList.add(Camera(name=name, source=source, dests=dests))
+            } while (cursor.moveToNext())
+        }
         return cameraList
     }
     /**

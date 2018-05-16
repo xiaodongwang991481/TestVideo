@@ -63,6 +63,10 @@ class CameraDestEditActivity : AppCompatActivity() {
             cameraDestProperties = cameraDest.dest_properties
             cameraDestPropertyAdapter = CameraDestPropertyAdapter(this, cameraDestProperties)
         }
+        var header = layoutInflater.inflate(R.layout.camera_dest_property_header, camera_dest_properties, false)
+        camera_dest_properties.addHeaderView(header)
+        var footer = layoutInflater.inflate(R.layout.listview_footer, camera_dest_properties, false)
+        camera_dest_properties.addFooterView(footer)
         camera_dest_properties.setAdapter(cameraDestPropertyAdapter)
         add_camera_dest_property.setOnClickListener(AddCameraDestProperty())
         edit_camera_dest_save.setOnClickListener(SaveCameraDest())

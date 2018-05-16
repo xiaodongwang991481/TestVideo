@@ -17,4 +17,8 @@
     <string name="delete_camera_dest_property">Delete</string>
     <string name="camera_dest_property_name">Camera Dest Property Name</string>
     <string name="camera_dest_property_value">Camera Dest Property Value</string>
+
+    <string name="title_activity_video_play">VideoPlayActivity</string>
+    <string name="dummy_button">Dummy Button</string>
+    <string name="dummy_content">DUMMY\nCONTENT</string>
 </resources>

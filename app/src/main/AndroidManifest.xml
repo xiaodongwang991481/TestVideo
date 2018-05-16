@@ -37,12 +37,24 @@
                 android:name="android.support.PARENT_ACTIVITY"
                 android:value="com.example.xiaodong.testvideo.MainActivity" />
         </activity>
-        <activity android:name=".CameraDestEditActivity"
+        <activity
+            android:name=".CameraDestEditActivity"
             android:launchMode="singleTop"
             android:parentActivityName=".CameraEditActivity">
             <meta-data
                 android:name="android.support.PARENT_ACTIVITY"
                 android:value="com.example.xiaodong.testvideo.CameraEditActivity" />
+        </activity>
+        <activity
+            android:name=".VideoPlayActivity"
+            android:launchMode="singleTop"
+            android:configChanges="orientation|keyboardHidden|screenSize"
+            android:label="@string/title_activity_video_play"
+            android:parentActivityName=".MainActivity"
+            android:theme="@style/FullscreenTheme">
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value="com.example.xiaodong.testvideo.MainActivity" />
         </activity>
     </application>
 

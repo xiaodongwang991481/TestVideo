@@ -1,5 +1,6 @@
 package com.example.xiaodong.testvideo
 
+import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.support.v7.app.AppCompatActivity
@@ -10,11 +11,14 @@ import android.widget.AdapterView
 import android.widget.EditText
 import android.widget.ExpandableListView
 import kotlinx.android.synthetic.main.activity_camera_edit.*
+import kotlinx.android.synthetic.main.activity_main.*
 
 class CameraEditActivity : AppCompatActivity() {
 
     private val LOGTAG = "CameraEditActivity"
     private var cameraDests = ArrayList<CameraDest>()
+    public var groupIndicatorWidth: Int = 50
+    public var childIndicatorWidth: Int = 50
     private var cameraDestAdapter = CameraDestAdapter(this, cameraDests)
 
     inner class SaveCamera : View.OnClickListener {
@@ -31,8 +35,8 @@ class CameraEditActivity : AppCompatActivity() {
 
     inner class EditCameraDest : AdapterView.OnItemLongClickListener {
         override fun onItemLongClick(parent: AdapterView<*>?, view: View?, position: Int, id: Long): Boolean {
-            var cameraDest = cameraDests.get(position) as? CameraDest
-            Log.i(LOGTAG, "long click on $cameraDest")
+            var cameraDest = edit_camera_dests.getItemAtPosition(position) as? CameraDest
+            Log.i(LOGTAG, "item $position long click on $cameraDest")
             cameraDest?.let {
                 this@CameraEditActivity.onButtonClickEdit(cameraDest)
             }
@@ -77,10 +81,22 @@ class CameraEditActivity : AppCompatActivity() {
             cameraDests = camera.dests
             cameraDestAdapter = CameraDestAdapter(this, cameraDests)
         }
+        var header = layoutInflater.inflate(R.layout.camera_dest_header, edit_camera_dests, false)
+        edit_camera_dests.addHeaderView(header)
+        var footer = layoutInflater.inflate(R.layout.listview_footer, edit_camera_dests, false)
+        edit_camera_dests.addFooterView(footer)
         edit_camera_dests.setAdapter(cameraDestAdapter)
         edit_camera_dests.setOnItemLongClickListener(EditCameraDest())
-        edit_camera_dests.setIndicatorBounds(0, 10)
-        edit_camera_dests.setChildIndicatorBounds(0, 10)
+        val groupIndicator = resources.getDrawable(R.drawable.expandible_group_indicator, this.theme)
+        val childIndicator = resources.getDrawable(R.drawable.expandible_child_indicator, this.theme)
+        groupIndicatorWidth = groupIndicator.intrinsicWidth
+        childIndicatorWidth = childIndicator.intrinsicWidth
+        Log.i(LOGTAG, "group indicator width: $groupIndicatorWidth")
+        Log.i(LOGTAG, "child indicator width: $childIndicatorWidth")
+        edit_camera_dests.setIndicatorBounds(0, groupIndicatorWidth)
+        edit_camera_dests.setGroupIndicator(groupIndicator)
+        edit_camera_dests.setChildIndicatorBounds(0, childIndicatorWidth)
+        edit_camera_dests.setChildIndicator(childIndicator)
         add_camera_dest.setOnClickListener(AddCameraDest())
         edit_camera_save.setOnClickListener(SaveCamera())
     }
@@ -210,5 +226,17 @@ class CameraEditActivity : AppCompatActivity() {
         )
         cameraDest.dest_properties.remove(cameraDestProperty)
         cameraDestAdapter.notifyDataSetChanged()
+    }
+
+    companion object {
+        public fun px2dip(context: Context, pxValue: Float) : Int {
+            var scale = context.getResources().getDisplayMetrics().density
+            return (pxValue/scale+0.5f).toInt()
+        }
+
+        public fun dip2px(context: Context, dipValue: Float) : Int {
+            var scale = context.getResources().getDisplayMetrics().density;
+            return (dipValue*scale+0.5f).toInt()
+        }
     }
 }
