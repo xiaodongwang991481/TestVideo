@@ -48,8 +48,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private val LOGTAG = "mainActivity"
-    private var dbHelper: DBOpenHelper = DBOpenHelper(this, "my.db", null, 1)
-    private var cameraList = getInitialCameraList()
+    private var dbHelper: DBOpenHelper? = null
+    private var cameraList = ArrayList<Camera>()
     private var camerasAdapter = CameraAdapter(
             this, cameraList
     )
@@ -64,6 +64,11 @@ class MainActivity : AppCompatActivity() {
         cameras.addHeaderView(header)
         var footer = layoutInflater.inflate(R.layout.listview_footer, cameras, false)
         cameras.addFooterView(footer)
+        dbHelper = DBOpenHelper(null, "my.db", null, 1)
+        cameraList = getInitialCameraList()
+        camerasAdapter = CameraAdapter(
+                this, cameraList
+        )
         cameras.setAdapter(camerasAdapter)
         add_camera.setOnClickListener(AddCamera())
         cameras.setOnItemClickListener(ShowCamera())
@@ -211,7 +216,7 @@ class MainActivity : AppCompatActivity() {
         this.startActivity(intent)
     }
 
-    private fun getInitialCameraList() : ArrayList<Camera> {
+    private final fun getInitialCameraList() : ArrayList<Camera> {
         var cameraList = ArrayList<Camera>()
         var db = dbHelper?.readableDatabase ?: throw Exception("dbhelper is null")
         db.beginTransactionNonExclusive()
