@@ -1,5 +1,6 @@
 package com.example.xiaodong.testvideo
 
+import android.content.ContentValues
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
 import kotlinx.android.synthetic.main.activity_main.*
@@ -16,6 +17,12 @@ class MainActivity : AppCompatActivity() {
     inner class AddCamera : View.OnClickListener {
         override fun onClick(v: View?) {
             this@MainActivity.onButtonClickAdd()
+        }
+    }
+
+    inner class SaveCameras : View.OnClickListener {
+        override fun onClick(v: View?) {
+            this@MainActivity.onButtonClickSave()
         }
     }
 
@@ -45,7 +52,7 @@ class MainActivity : AppCompatActivity() {
             this, cameraList
     )
     private val LOGTAG = "mainActivity"
-    private val dbHelper = DBOpenHelper(this)
+    private var dbHelper: DBOpenHelper? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -53,6 +60,7 @@ class MainActivity : AppCompatActivity() {
         // Example of a call to a native method
         // sample_text.text = stringFromJNI()
         Log.i(LOGTAG, "main activiy initialized with state = $savedInstanceState")
+        dbHelper = DBOpenHelper(this, "my.db", null, 1)
         var header = layoutInflater.inflate(R.layout.camera_header, cameras, false)
         cameras.addHeaderView(header)
         var footer = layoutInflater.inflate(R.layout.listview_footer, cameras, false)
@@ -61,12 +69,48 @@ class MainActivity : AppCompatActivity() {
         add_camera.setOnClickListener(AddCamera())
         cameras.setOnItemClickListener(ShowCamera())
         cameras.setOnItemLongClickListener(EditCamera())
+        save_cameras.setOnClickListener(SaveCameras())
     }
 
     fun onButtonClickAdd() {
         Log.i(LOGTAG, "add camera")
         val intent = Intent(this, CameraEditActivity::class.java)
         this.startActivityForResult(intent, 1)
+    }
+
+    fun onButtonClickSave() {
+        Log.i(LOGTAG, "save cameras: $cameraList")
+        if (dbHelper == null) {
+            Log.e(LOGTAG, "dbhelper is null")
+            return
+        }
+        var db = dbHelper.writableDatabase
+        db.beginTransaction()
+        try {
+            for (camera in cameraList) {
+                var cameraContent = ContentValues()
+                cameraContent.put("name", camera.name)
+                cameraContent.put("source", camera.source)
+                db.replace("camera", null, cameraContent)
+                for (cameraDest in camera.dests) {
+                    var cameraDestContent = ContentValues()
+                    cameraDestContent.put("name", cameraDest.name)
+                    cameraDestContent.put("camera_name", camera.name)
+                    db.replace("camera_dest", null, cameraDestContent)
+                    for (cameraDestProperty in cameraDest.dest_properties) {
+                        var cameraDestPropertyContent = ContentValues()
+                        cameraDestPropertyContent.put("name", cameraDestProperty.name)
+                        cameraDestPropertyContent.put("value", cameraDestProperty.value)
+                        cameraDestPropertyContent.put("dest_name", cameraDest.name)
+                        cameraDestPropertyContent.put("camera_name", camera.name)
+                        db.replace("camera_dest_property", null, cameraDestPropertyContent)
+                    }
+                }
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
     }
 
     override fun onSaveInstanceState(outState: Bundle?) {
@@ -174,44 +218,54 @@ class MainActivity : AppCompatActivity() {
 
     private fun getInitialCameraList() : ArrayList<Camera> {
         var cameraList = ArrayList<Camera>()
-        var db = dbHelper.writableDatabase
-        var cursor = db.query(
-                "camera", null, null,
-                null, null, null, null
-        )
-        if (cursor.moveToFirst()) {
-            do {
-                var name = cursor.getString(cursor.getColumnIndex("name"))
-                var source = cursor.getString(cursor.getColumnIndex("source"))
-                var destCursor = db.query(
-                        "camera_dest", null, "camera_name=?",
-                        arrayOf(name), null, null, null
-                )
-                var dests = ArrayList<CameraDest>()
-                if (destCursor.moveToFirst()) {
-                    do {
-                        var destName = destCursor.getString(destCursor.getColumnIndex("name"))
-                        var destPropertyCursor = db.query(
-                                "camera_dest_property", null, "dest_name=?",
-                                arrayOf(destName), null, null, null
-                        )
-                        var destProperties = ArrayList<CameraDestProperty>()
-                        if (destPropertyCursor.moveToFirst()) {
-                            do {
-                                var destPropertyName = destPropertyCursor.getString(
-                                        destPropertyCursor.getColumnIndex("name")
-                                )
-                                var destPropertyValue = destPropertyCursor.getString(
-                                        destPropertyCursor.getColumnIndex("value")
-                                )
-                                destProperties.add(CameraDestProperty(name=destPropertyName, value=destPropertyValue))
-                            } while (destPropertyCursor.moveToNext())
-                        }
-                        dests.add(CameraDest(name=destName, dest_properties=destProperties))
-                    } while (destCursor.moveToNext())
-                }
-                cameraList.add(Camera(name=name, source=source, dests=dests))
-            } while (cursor.moveToNext())
+        if (dbHelper == null) {
+            Log.e(LOGTAG, "dbhelper is null")
+            return ArrayList<Camera>()
+        }
+        var db = dbHelper.readableDatabase
+        db.beginTransactionNonExclusive()
+        try {
+            var cursor = db.query(
+                    "camera", null, null,
+                    null, null, null, null
+            )
+            if (cursor.moveToFirst()) {
+                do {
+                    var name = cursor.getString(cursor.getColumnIndex("name"))
+                    var source = cursor.getString(cursor.getColumnIndex("source"))
+                    var destCursor = db.query(
+                            "camera_dest", null, "camera_name=?",
+                            arrayOf(name), null, null, null
+                    )
+                    var dests = ArrayList<CameraDest>()
+                    if (destCursor.moveToFirst()) {
+                        do {
+                            var destName = destCursor.getString(destCursor.getColumnIndex("name"))
+                            var destPropertyCursor = db.query(
+                                    "camera_dest_property", null, "dest_name=?",
+                                    arrayOf(destName), null, null, null
+                            )
+                            var destProperties = ArrayList<CameraDestProperty>()
+                            if (destPropertyCursor.moveToFirst()) {
+                                do {
+                                    var destPropertyName = destPropertyCursor.getString(
+                                            destPropertyCursor.getColumnIndex("name")
+                                    )
+                                    var destPropertyValue = destPropertyCursor.getString(
+                                            destPropertyCursor.getColumnIndex("value")
+                                    )
+                                    destProperties.add(CameraDestProperty(name = destPropertyName, value = destPropertyValue))
+                                } while (destPropertyCursor.moveToNext())
+                            }
+                            dests.add(CameraDest(name = destName, dest_properties = destProperties))
+                        } while (destCursor.moveToNext())
+                    }
+                    cameraList.add(Camera(name = name, source = source, dests = dests))
+                } while (cursor.moveToNext())
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
         }
         return cameraList
     }

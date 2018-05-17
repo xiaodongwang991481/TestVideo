@@ -56,7 +56,7 @@ class VideoPlayActivity : AppCompatActivity() {
         mVisible = true
 
         // Set up the user interaction to manually show or hide the system UI.
-        fullscreen_content.setOnClickListener { toggle() }
+        camera_play.setOnClickListener { toggle() }
 
         // Upon interacting with UI controls, delay any scheduled hide()
         // operations to prevent the jarring behavior of controls going away
@@ -104,7 +104,7 @@ class VideoPlayActivity : AppCompatActivity() {
 
     private fun show() {
         // Show the system bar
-        fullscreen_content.systemUiVisibility =
+        camera_play.systemUiVisibility =
                 View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
                 View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
         mVisible = true

@@ -8,6 +8,7 @@
     <string name="camera_dests">Camera Dests</string>
     <string name="camera_dest_name">Camera Dest Name</string>
     <string name="save_camera">Save</string>
+    <string name="save_cameras">Save</string>
     <string name="save_camera_dest">Save</string>
     <string name="delete_camera_dest">Delete</string>
     <string name="edit_camera_dest">Edit</string>

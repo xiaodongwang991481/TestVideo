@@ -24,8 +24,12 @@ extern "C" JNIEXPORT jstring
 JNICALL
 Java_com_example_xiaodong_testvideo_MainActivity_naInit(
         JNIEnv *env,
-        jobject this,
+        jobject jobject1,
         jstring source
 ) {
-    return (char *)(*pEnv)->GetStringUTFChars(pEnv, source, NULL);
+    const char* camera_source = env->GetStringUTFChars(source, NULL);
+    jstring ret_source = env->NewStringUTF(camera_source);
+    env->ReleaseStringUTFChars(source, camera_source);
+    return ret_source;
+
 }

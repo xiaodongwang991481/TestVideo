@@ -23,4 +23,10 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:focusable="true" />
+    <Button
+        android:id="@+id/save_cameras"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:clickable="true"
+        android:text="@string/save_cameras" />
 </LinearLayout>
