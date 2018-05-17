@@ -22,7 +22,7 @@ class DBOpenHelper(
                     "CREATE table if not exists camera_dest_property(" +
                             "name text primary key, value text not null, dest_name text not null, camera_name text not null" +
                             "primary key (name, dest_name, camera_name) " +
-                            "constraint foreign key (dest_name, camera_name) " +
+                            "foreign key (dest_name, camera_name) " +
                             "references camera_dest (name, camera_name) on delete cascade on update cascade)"
             )
         }

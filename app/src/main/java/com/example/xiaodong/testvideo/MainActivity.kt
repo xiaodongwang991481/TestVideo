@@ -47,12 +47,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private val LOGTAG = "mainActivity"
+    private var dbHelper: DBOpenHelper = DBOpenHelper(this, "my.db", null, 1)
     private var cameraList = getInitialCameraList()
     private var camerasAdapter = CameraAdapter(
             this, cameraList
     )
-    private val LOGTAG = "mainActivity"
-    private var dbHelper: DBOpenHelper? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -60,7 +60,6 @@ class MainActivity : AppCompatActivity() {
         // Example of a call to a native method
         // sample_text.text = stringFromJNI()
         Log.i(LOGTAG, "main activiy initialized with state = $savedInstanceState")
-        dbHelper = DBOpenHelper(this, "my.db", null, 1)
         var header = layoutInflater.inflate(R.layout.camera_header, cameras, false)
         cameras.addHeaderView(header)
         var footer = layoutInflater.inflate(R.layout.listview_footer, cameras, false)
@@ -80,11 +79,7 @@ class MainActivity : AppCompatActivity() {
 
     fun onButtonClickSave() {
         Log.i(LOGTAG, "save cameras: $cameraList")
-        if (dbHelper == null) {
-            Log.e(LOGTAG, "dbhelper is null")
-            return
-        }
-        var db = dbHelper.writableDatabase
+        var db = dbHelper?.writableDatabase ?: throw Exception("dbhelp is null")
         db.beginTransaction()
         try {
             for (camera in cameraList) {
@@ -218,11 +213,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun getInitialCameraList() : ArrayList<Camera> {
         var cameraList = ArrayList<Camera>()
-        if (dbHelper == null) {
-            Log.e(LOGTAG, "dbhelper is null")
-            return ArrayList<Camera>()
-        }
-        var db = dbHelper.readableDatabase
+        var db = dbHelper?.readableDatabase ?: throw Exception("dbhelper is null")
         db.beginTransactionNonExclusive()
         try {
             var cursor = db.query(
