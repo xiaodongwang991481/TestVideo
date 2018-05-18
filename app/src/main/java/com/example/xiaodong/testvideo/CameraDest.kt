@@ -5,7 +5,7 @@ import android.os.Parcelable
 
 data class CameraDest(
         val name: String,
-        val dest_properties: ArrayList<CameraDestProperty> = ArrayList<CameraDestProperty>()
+        val dest_properties: ArrayList<CameraDestProperty> = ArrayList()
 ) : Parcelable {
     constructor(parcel: Parcel) : this(
             parcel.readString(),

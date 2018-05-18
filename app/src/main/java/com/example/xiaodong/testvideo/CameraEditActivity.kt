@@ -5,21 +5,19 @@ import android.content.Intent
 import android.graphics.Color
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
+import android.os.PersistableBundle
 import android.util.Log
 import android.view.View
 import android.widget.AdapterView
-import android.widget.EditText
-import android.widget.ExpandableListView
 import kotlinx.android.synthetic.main.activity_camera_edit.*
-import kotlinx.android.synthetic.main.activity_main.*
 
 class CameraEditActivity : AppCompatActivity() {
 
-    private val LOGTAG = "CameraEditActivity"
-    private var cameraDests = ArrayList<CameraDest>()
-    public var groupIndicatorWidth: Int = 50
-    public var childIndicatorWidth: Int = 50
-    private var cameraDestAdapter = CameraDestAdapter(this, cameraDests)
+    private val LOG_TAG = "CameraEditActivity"
+    private var cameraDests: ArrayList<CameraDest>? = null
+    var groupIndicatorWidth: Int = 50
+    var childIndicatorWidth: Int = 50
+    private var cameraDestAdapter: CameraDestAdapter? = null
 
     inner class SaveCamera : View.OnClickListener {
         override fun onClick(v: View?) {
@@ -35,64 +33,64 @@ class CameraEditActivity : AppCompatActivity() {
 
     inner class EditCameraDest : AdapterView.OnItemLongClickListener {
         override fun onItemLongClick(parent: AdapterView<*>?, view: View?, position: Int, id: Long): Boolean {
-            var cameraDest = edit_camera_dests.getItemAtPosition(position) as? CameraDest
-            Log.i(LOGTAG, "item $position long click on $cameraDest")
-            cameraDest?.let {
-                this@CameraEditActivity.onButtonClickEdit(cameraDest)
-            }
+            var cameraDest = edit_camera_dests.getItemAtPosition(position) as CameraDest
+            Log.i(LOG_TAG, "item $position long click on $cameraDest")
+            this@CameraEditActivity.onButtonClickEdit(cameraDest)
             return true
         }
     }
 
     override fun onStart() {
         super.onStart()
-        Log.i(LOGTAG, "start activity")
+        Log.i(LOG_TAG, "start activity")
     }
 
     override fun onStop() {
         super.onStop()
-        Log.i(LOGTAG, "stop activity")
+        Log.i(LOG_TAG, "stop activity")
     }
 
     override fun onResume() {
         super.onResume()
-        Log.i(LOGTAG, "resume activity")
+        Log.i(LOG_TAG, "resume activity")
     }
 
     override fun onPause() {
         super.onPause()
-        Log.i(LOGTAG, "pause activity")
+        Log.i(LOG_TAG, "pause activity")
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_camera_edit)
-        Log.i(LOGTAG, "camera edit activity initialized with state = $savedInstanceState")
+        Log.i(LOG_TAG, "camera edit activity initialized with state = $savedInstanceState")
         if (intent.hasExtra("camera")) {
-            val camera: Camera = intent.getParcelableExtra("camera")
-            Log.i(LOGTAG, "get camera $camera")
+            val camera: Camera = intent.getParcelableExtra("camera") as Camera
+            Log.i(LOG_TAG, "get camera $camera")
             var cameraName = camera.name
             var cameraSource = camera.source
             edit_camera_name.setText(cameraName)
-            edit_camera_name.focusable = 0
+            edit_camera_name.focusable = View.NOT_FOCUSABLE
             edit_camera_name.setEnabled(false)
             edit_camera_name.setTextColor(Color.GRAY)
             edit_camera_source.setText(cameraSource)
             cameraDests = camera.dests
-            cameraDestAdapter = CameraDestAdapter(this, cameraDests)
+        } else {
+            cameraDests = ArrayList()
         }
-        var header = layoutInflater.inflate(R.layout.camera_dest_header, edit_camera_dests, false)
+        cameraDestAdapter = CameraDestAdapter(this, cameraDests!!)
+        var header = layoutInflater.inflate(R.layout.camera_dest_header, edit_camera_dests, false) as View
         edit_camera_dests.addHeaderView(header)
-        var footer = layoutInflater.inflate(R.layout.listview_footer, edit_camera_dests, false)
+        var footer = layoutInflater.inflate(R.layout.listview_footer, edit_camera_dests, false) as View
         edit_camera_dests.addFooterView(footer)
-        edit_camera_dests.setAdapter(cameraDestAdapter)
+        edit_camera_dests.setAdapter(cameraDestAdapter!!)
         edit_camera_dests.setOnItemLongClickListener(EditCameraDest())
         val groupIndicator = resources.getDrawable(R.drawable.expandible_group_indicator, this.theme)
         val childIndicator = resources.getDrawable(R.drawable.expandible_child_indicator, this.theme)
         groupIndicatorWidth = groupIndicator.intrinsicWidth
         childIndicatorWidth = childIndicator.intrinsicWidth
-        Log.i(LOGTAG, "group indicator width: $groupIndicatorWidth")
-        Log.i(LOGTAG, "child indicator width: $childIndicatorWidth")
+        Log.i(LOG_TAG, "group indicator width: $groupIndicatorWidth")
+        Log.i(LOG_TAG, "child indicator width: $childIndicatorWidth")
         edit_camera_dests.setIndicatorBounds(0, groupIndicatorWidth)
         edit_camera_dests.setGroupIndicator(groupIndicator)
         edit_camera_dests.setChildIndicatorBounds(0, childIndicatorWidth)
@@ -108,10 +106,14 @@ class CameraEditActivity : AppCompatActivity() {
 
         var cameraName = edit_camera_name.text.toString()
         var cameraSource = edit_camera_source.text.toString()
-        Log.i(LOGTAG, "save state camera name = $cameraName, camera source = $cameraSource")
-        outState?.putString("name", cameraName)
-        outState?.putString("source", cameraSource)
-        outState?.putParcelableArrayList("camera_dests", cameraDests)
+        Log.i(LOG_TAG, "save state camera name = $cameraName, camera source = $cameraSource")
+        outState?.let {
+            outState.putString("name", cameraName)
+            outState.putString("source", cameraSource)
+            cameraDests?.let {
+                outState.putParcelableArrayList("camera_dests", cameraDests)
+            }
+        }
     }
 
     override fun onRestoreInstanceState(savedInstanceState: Bundle?) {
@@ -120,24 +122,24 @@ class CameraEditActivity : AppCompatActivity() {
         }
         var cameraName = savedInstanceState?.getString("name") ?: ""
         var cameraSource = savedInstanceState?.getString("source") ?: ""
-        Log.i(LOGTAG, "restore state camera name = $cameraName, camera source = $cameraSource")
+        Log.i(LOG_TAG, "restore state camera name = $cameraName, camera source = $cameraSource")
         edit_camera_name.setText(cameraName)
         edit_camera_source.setText(cameraSource)
         cameraDests = savedInstanceState?.getParcelableArrayList(
                 "camera_dests"
-        ) ?: ArrayList<CameraDest>()
-        cameraDestAdapter = CameraDestAdapter(this, cameraDests)
-        edit_camera_dests.setAdapter(cameraDestAdapter)
+        ) ?: ArrayList()
+        cameraDestAdapter = CameraDestAdapter(this, cameraDests!!)
+        edit_camera_dests.setAdapter(cameraDestAdapter!!)
     }
 
     fun onButtonClickSave() {
-        Log.i(LOGTAG, "save camera")
+        Log.i(LOG_TAG, "save camera")
         if (edit_camera_name == null || edit_camera_name.text.isNullOrBlank()) {
-            Log.e(LOGTAG, "camera name is empty")
+            Log.e(LOG_TAG, "camera name is empty")
             return
         }
         if (edit_camera_source == null || edit_camera_source.text.isNullOrBlank()) {
-            Log.e(LOGTAG, "camera source is empty")
+            Log.e(LOG_TAG, "camera source is empty")
             return
         }
         var cameraName = edit_camera_name.text.toString()
@@ -145,9 +147,9 @@ class CameraEditActivity : AppCompatActivity() {
         val camera = Camera(
                 name=cameraName,
                 source=cameraSource,
-                dests=cameraDests
+                dests=cameraDests!!
             )
-        Log.i(LOGTAG, "set camera to $camera")
+        Log.i(LOG_TAG, "set camera to $camera")
         val intent = Intent()
         intent.putExtra("camera", camera)
         setResult(RESULT_OK, intent)
@@ -155,16 +157,16 @@ class CameraEditActivity : AppCompatActivity() {
     }
 
     fun onButtonClickAddDest() {
-        Log.i(LOGTAG, "add camera dest")
+        Log.i(LOG_TAG, "add camera dest")
         if (camera_dest_name == null || camera_dest_name.text.isNullOrBlank()) {
-            Log.e(LOGTAG, "camera dest is empty")
+            Log.e(LOG_TAG, "camera dest is empty")
             return
         }
         addCameraDest(CameraDest(camera_dest_name.text.toString()))
     }
 
     fun onButtonClickEdit(cameraDest: CameraDest) {
-        Log.i(LOGTAG, "edit camera dest $cameraDest")
+        Log.i(LOG_TAG, "edit camera dest $cameraDest")
         val intent = Intent(this, CameraDestEditActivity::class.java)
         intent.putExtra("cameraDest", cameraDest)
         this.startActivityForResult(intent, 0)
@@ -173,69 +175,70 @@ class CameraEditActivity : AppCompatActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         data?.let {
-            val cameraDest: CameraDest? = it.getParcelableExtra("cameraDest") as? CameraDest
-            if (cameraDest != null) {
-                when (requestCode) {
-                    0 -> updateCameraDest(cameraDest)
-                    1 -> addCameraDest(cameraDest)
-                    else -> {
-                        Log.e(LOGTAG, "unknown request code $requestCode")
-                    }
+            val cameraDest: CameraDest = it.getParcelableExtra("cameraDest") as CameraDest
+            when (requestCode) {
+                0 -> updateCameraDest(cameraDest)
+                1 -> addCameraDest(cameraDest)
+                else -> {
+                    Log.e(LOG_TAG, "unknown request code $requestCode")
                 }
-            } else {
-                Log.e(LOGTAG, "cameraDest is null")
             }
         }
     }
 
     fun updateCameraDest(cameraDest: CameraDest) {
-        Log.i(LOGTAG,"update cameraDest $cameraDest")
+        Log.i(LOG_TAG,"update cameraDest $cameraDest")
         var found = false
-        for (i in cameraDests.indices) {
-            var existingCameraDest = cameraDests[i]
+        var cameraDestsInternal = cameraDests!!
+        for (i in cameraDestsInternal.indices) {
+            var existingCameraDest = cameraDestsInternal[i]
             if (existingCameraDest.name == cameraDest.name) {
                 existingCameraDest = cameraDest
-                cameraDests[i] = existingCameraDest
-                Log.i(LOGTAG, "update existing camera dest $existingCameraDest")
+                cameraDestsInternal[i] = existingCameraDest
+                Log.i(LOG_TAG, "update existing camera dest $existingCameraDest")
                 found = true
                 break
             }
         }
         if (!found) {
-            Log.e(LOGTAG, "cameradest ${cameraDest.name} is not found in existing camera dests")
+            Log.e(LOG_TAG, "cameradest ${cameraDest.name} is not found in existing camera dests")
         }
-        cameraDestAdapter.notifyDataSetChanged()
+        cameraDestAdapter!!.notifyDataSetChanged()
     }
 
     fun addCameraDest(cameraDest: CameraDest) {
-        Log.i(LOGTAG,"add camera dest $cameraDest")
-        cameraDests.add(cameraDest)
-        cameraDestAdapter.notifyDataSetChanged()
+        Log.i(LOG_TAG,"add camera dest $cameraDest")
+        if (cameraDest in cameraDests!!) {
+            Log.i(LOG_TAG, "camera dest $cameraDest in camera dest list $cameraDests")
+        } else {
+            cameraDests!!.add(cameraDest)
+        }
+        cameraDestAdapter!!.notifyDataSetChanged()
     }
 
     fun onButtonClickDelete(cameraDest: CameraDest) {
-        Log.i(LOGTAG, "delete camera dest $cameraDest")
-        cameraDests.remove(cameraDest)
-        cameraDestAdapter.notifyDataSetChanged()
+        Log.i(LOG_TAG, "delete camera dest $cameraDest")
+        cameraDests!!.remove(cameraDest)
+        cameraDestAdapter!!.notifyDataSetChanged()
     }
 
     fun onButtonClickDeleteProperty(cameraDest: CameraDest, cameraDestProperty: CameraDestProperty) {
         Log.i(
-                LOGTAG,
+                LOG_TAG,
                 "delete camera dest ${cameraDest.name} property $cameraDestProperty"
         )
         cameraDest.dest_properties.remove(cameraDestProperty)
-        cameraDestAdapter.notifyDataSetChanged()
+        cameraDestAdapter!!.notifyDataSetChanged()
     }
 
     companion object {
-        public fun px2dip(context: Context, pxValue: Float) : Int {
+        fun px2dip(context: Context, pxValue: Float) : Int {
             var scale = context.getResources().getDisplayMetrics().density
             return (pxValue/scale+0.5f).toInt()
         }
 
-        public fun dip2px(context: Context, dipValue: Float) : Int {
-            var scale = context.getResources().getDisplayMetrics().density;
+        fun dip2px(context: Context, dipValue: Float) : Int {
+            var scale = context.getResources().getDisplayMetrics().density
             return (dipValue*scale+0.5f).toInt()
         }
     }

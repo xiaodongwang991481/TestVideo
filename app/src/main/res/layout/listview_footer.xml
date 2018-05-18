@@ -11,5 +11,5 @@
         android:layout_height="match_parent"
         android:gravity="center"
         android:background="@color/colorPrimary"
-        android:text="End" />
+        android:text="@string/listview_footer" />
 </LinearLayout>

@@ -10,5 +10,5 @@
         android:layout_height="match_parent"
         android:gravity="center"
         android:background="@color/colorPrimary"
-        android:text="Camera Dest Properties" />
+        android:text="@string/camera_dest_properties_header" />
 </LinearLayout>

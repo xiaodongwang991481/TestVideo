@@ -7,17 +7,18 @@
         android:id="@+id/camera"
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
-        android:layout_alignParentLeft="true"
+        android:layout_alignParentStart="true"
         android:layout_centerVertical="true"
         android:gravity="center_vertical"
         android:autoSizeTextType="uniform"
+        android:layout_toStartOf="@+id/delete_camera"
         android:text="" />
     <Button
         android:id="@+id/delete_camera"
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
         android:focusable="false"
-        android:layout_alignParentRight="true"
+        android:layout_alignParentEnd="true"
         android:layout_centerVertical="true"
         android:gravity="center"
         android:text="@string/delete_camera" />
