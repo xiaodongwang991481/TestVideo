@@ -1,9 +1,10 @@
 #include <jni.h>
 #include <string>
 #include <android/log.h>
+#include <android/bitmap.h>
 
 extern "C" {
-#include "libavcodec/avcodec.h"
+#include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libswscale/swscale.h>
 #include <libavutil/pixfmt.h>
@@ -28,7 +29,6 @@ int decode_internal(const char* camera_source, int width, int height, void* buff
     AVCodecContext  	*codecCtx = NULL;
     AVFrame         	*decodedFrame = NULL;
     AVFrame         	*frameRGBA = NULL;
-    void*				buffer;
     struct SwsContext   *sws_ctx = NULL;
     int	stop;
     AVCodec         *pCodec = NULL;
@@ -46,7 +46,7 @@ int decode_internal(const char* camera_source, int width, int height, void* buff
     // Retrieve stream information
     if(avformat_find_stream_info(formatCtx, NULL)<0){
         LOGE("FAILED to find stream info %s", camera_source);
-        av_close_input_file(&formatCtx);
+        avformat_close_input(&formatCtx);
         return -1; // Couldn't find stream information
     }
     // Dump information about file onto standard error
@@ -60,7 +60,7 @@ int decode_internal(const char* camera_source, int width, int height, void* buff
     }
     if(videoStream==-1){
         LOGE("Didn't find a video stream");
-        av_close_input_file(&formatCtx);
+        avformat_close_input(&formatCtx);
         return -1; // Didn't find a video stream
     }
     // Get a pointer to the codec context for the video stream
@@ -69,14 +69,14 @@ int decode_internal(const char* camera_source, int width, int height, void* buff
     pCodec = avcodec_find_decoder(codecCtx->codec_id);
     if(pCodec == NULL) {
         LOGE("Unsupported codec");
-        av_close_input_file(&formatCtx);
+        avformat_close_input(&formatCtx);
         return -1; // Codec not found
     }
     // Open codec
     if(avcodec_open2(codecCtx, pCodec, &optionsDict)<0){
         LOGE("Could not open codec");
         avcodec_close(codecCtx);
-        av_close_input_file(&formatCtx);
+        avformat_close_input(&formatCtx);
         return -1; // Could not open codec
     }
     // Allocate video frame
@@ -84,8 +84,8 @@ int decode_internal(const char* camera_source, int width, int height, void* buff
     if (decodedFrame == NULL) {
         LOGE("AVFrame could not be allocated")
         avcodec_close(codecCtx);
-        av_close_input_file(&formatCtx);
-        return 1
+        avformat_close_input(&formatCtx);
+        return -1;
     }
     // Allocate an AVFrame structure
     frameRGBA = av_frame_alloc();
@@ -93,7 +93,7 @@ int decode_internal(const char* camera_source, int width, int height, void* buff
         LOGE("AVFrameRGBA could not be allocated");
         av_frame_free(&decodedFrame);
         avcodec_close(codecCtx);
-        av_close_input_file(&formatCtx);
+        avformat_close_input(&formatCtx);
         return -1;
     }
     //get the scaling context
@@ -114,21 +114,21 @@ int decode_internal(const char* camera_source, int width, int height, void* buff
             width, height
     );
     int framefinished;
-    while(av_read_frame(formatCtx, packet)>=0){
-        if(packet->stream_index==videoStream){
+    while(av_read_frame(formatCtx, &packet)>=0){
+        if(packet.stream_index==videoStream){
             if(avcodec_decode_video2(
-                            codecCtx, decodedFrame, &framefinished, packet
+                            codecCtx, decodedFrame, &framefinished, &packet
             ) < 0) {
                 LOGE("Decode Error.\n");
-                av_free_packet(&packet)
+                av_free_packet(&packet);
                 av_frame_free(&frameRGBA);
                 av_frame_free(&decodedFrame);
                 avcodec_close(codecCtx);
-                av_close_input_file(&formatCtx);
-                return -1
+                avformat_close_input(&formatCtx);
+                return -1;
             }
             if(framefinished){
-                sws_scale(sws_ctx, (const uint8_t* const*)decdodedFrame->data,
+                sws_scale(sws_ctx, (const uint8_t* const*)decodedFrame->data,
                           decodedFrame->linesize, 0, codecCtx->height,
                           frameRGBA->data, frameRGBA->linesize
                 );
@@ -140,7 +140,7 @@ int decode_internal(const char* camera_source, int width, int height, void* buff
     av_frame_free(&frameRGBA);
     av_frame_free(&decodedFrame);
     avcodec_close(codecCtx);
-    av_close_input_file(&formatCtx);
+    avformat_close_input(&formatCtx);
     return 0;
 }
 
@@ -150,7 +150,7 @@ Java_com_example_xiaodong_testvideo_MainActivity_decode(
         JNIEnv *env,
         jobject jobject1,
         jstring source,
-        jint width, jint height, jobject bitmap,
+        jint width, jint height, jobject bitmap
 ) {
 
     const char* camera_source = env->GetStringUTFChars(source, NULL);
