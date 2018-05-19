@@ -46,6 +46,7 @@ class VideoPlayActivity : AppCompatActivity() {
         }
         false
     }
+    private val ffmpeg = FFmpeg()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
