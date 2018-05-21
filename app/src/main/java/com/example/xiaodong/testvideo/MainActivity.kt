@@ -153,15 +153,19 @@ class MainActivity : AppCompatActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        data?.let {
-            val camera: Camera = it.getParcelableExtra("camera") as Camera
-            when (requestCode) {
-                0 -> updateCamera(camera)
-                1 -> addCamera(camera)
-                else -> {
-                    Log.e(LOG_TAG, "unknown request code $requestCode")
+        if (resultCode == RESULT_OK) {
+            data?.let {
+                val camera: Camera = it.getParcelableExtra("camera") as Camera
+                when (requestCode) {
+                    0 -> updateCamera(camera)
+                    1 -> addCamera(camera)
+                    else -> {
+                        Log.e(LOG_TAG, "unknown request code $requestCode")
+                    }
                 }
             }
+        } else {
+            Log.e(LOG_TAG, "result code = $resultCode")
         }
     }
 

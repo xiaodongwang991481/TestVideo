@@ -4,4 +4,5 @@ import android.graphics.Bitmap;
 
 public interface CallbackFromJNI {
     void bitMapCallback(Bitmap bitmap);
+    boolean finishCallback();
 }

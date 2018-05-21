@@ -1,5 +1,6 @@
 package com.example.xiaodong.testvideo
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -174,15 +175,19 @@ class CameraEditActivity : AppCompatActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        data?.let {
-            val cameraDest: CameraDest = it.getParcelableExtra("cameraDest") as CameraDest
-            when (requestCode) {
-                0 -> updateCameraDest(cameraDest)
-                1 -> addCameraDest(cameraDest)
-                else -> {
-                    Log.e(LOG_TAG, "unknown request code $requestCode")
+        if (resultCode == Activity.RESULT_OK) {
+            data?.let {
+                val cameraDest: CameraDest = it.getParcelableExtra("cameraDest") as CameraDest
+                when (requestCode) {
+                    0 -> updateCameraDest(cameraDest)
+                    1 -> addCameraDest(cameraDest)
+                    else -> {
+                        Log.e(LOG_TAG, "unknown request code $requestCode")
+                    }
                 }
             }
+        } else {
+            Log.e(LOG_TAG, "result code = $resultCode")
         }
     }
 

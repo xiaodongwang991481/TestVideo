@@ -6,14 +6,19 @@ class FFmpeg {
      * which is packaged with this application.
      */
     external fun stringFromJNI(): String
-    external fun decode(source: String, width: Int, height: Int, callback: CallbackFromJNI): Boolean
+    external fun decode(
+            source: String, dests: Array<String>?, width: Int, height: Int, callback: CallbackFromJNI,
+            decode: Boolean, sync: Boolean): Boolean
 
     companion object {
+        @JvmStatic
+        external fun initJNI(): Unit
 
         // Used to load the 'native-lib' library on application startup.
         init {
             // System.loadLibrary("avutil")
             System.loadLibrary("native-lib")
+            initJNI()
         }
     }
 }

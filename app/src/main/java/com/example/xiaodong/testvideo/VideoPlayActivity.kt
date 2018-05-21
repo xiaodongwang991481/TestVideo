@@ -1,12 +1,21 @@
 package com.example.xiaodong.testvideo
 
+import android.app.Activity
+import android.graphics.Color
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Handler
 import android.view.View
 import android.support.v4.app.NavUtils
+import android.util.Log
 import android.view.MenuItem
+import kotlinx.android.synthetic.main.activity_camera_edit.*
+import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.activity_video_play.*
+import android.provider.MediaStore
+import android.content.Intent
+
+
 
 /**
  * An example full-screen activity that shows and hides the system UI (i.e.
@@ -46,12 +55,25 @@ class VideoPlayActivity : AppCompatActivity() {
         }
         false
     }
-    private val ffmpeg = FFmpeg()
+
+    private val LOG_TAG = "VideoPlayActivity"
+    public val ffmpeg = FFmpeg()
+    public var cameraSource: String? = null
+    public var cameraDests: Array<String>? = null
+    private var backgroundTask: VideoProcessTask? = null
+    public var cameraCallback = CallbackForCamera()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         setContentView(R.layout.activity_video_play)
+        if (intent.hasExtra("camera")) {
+            var camera = intent.getParcelableExtra("camera") as Camera
+            Log.i(LOG_TAG, "get camera $camera")
+            cameraSource = camera.source
+            var dests = ArrayList<String>()
+            cameraDests = dests.toTypedArray()
+        }
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
         mVisible = true
@@ -63,6 +85,58 @@ class VideoPlayActivity : AppCompatActivity() {
         // operations to prevent the jarring behavior of controls going away
         // while interacting with the UI.
         dummy_button.setOnTouchListener(mDelayHideTouchListener)
+    }
+
+    override fun onSaveInstanceState(outState: Bundle?) {
+        outState?.let {
+            super.onSaveInstanceState(outState)
+        }
+        Log.i(LOG_TAG, "save state camera source: $cameraSource")
+        cameraSource?.let {
+            outState?.putString("camera_source", cameraSource)
+        }
+        Log.i(LOG_TAG, "save state camera dests: $cameraDests")
+        cameraDests?.let {
+            outState?.putStringArray("camera_dests", cameraDests)
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        Log.i(LOG_TAG, "start activity")
+        backgroundTask = backgroundTask ?: VideoProcessTask(this).apply {
+            execute()
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        Log.i(LOG_TAG, "stop activity")
+        backgroundTask?.apply {
+                cancel(true)
+                get()
+        }
+        backgroundTask = null
+    }
+
+    override fun onResume() {
+        super.onResume()
+        Log.i(LOG_TAG, "resume activity")
+    }
+
+    override fun onPause() {
+        super.onPause()
+        Log.i(LOG_TAG, "pause activity")
+    }
+
+    override fun onRestoreInstanceState(savedInstanceState: Bundle?) {
+        savedInstanceState?.let {
+            super.onRestoreInstanceState(savedInstanceState)
+        }
+        cameraSource = savedInstanceState?.getString("camera_source")
+        Log.i(LOG_TAG, "restore state camera source: $cameraSource")
+        cameraDests =  savedInstanceState?.getStringArray("camera_dests")
+        Log.i(LOG_TAG, "restore state camera dests: $cameraDests")
     }
 
     override fun onPostCreate(savedInstanceState: Bundle?) {
