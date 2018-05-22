@@ -48,13 +48,13 @@ android {
             jniDebuggable true
             renderscriptDebuggable true
         }
-        release {
-            debuggable true
-            jniDebuggable true
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            renderscriptDebuggable false
-        }
+        // release {
+        //    debuggable true
+        //    jniDebuggable true
+        //    minifyEnabled false
+        //    proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        //    renderscriptDebuggable false
+        // }
     }
     // sourceSets {
     //    main {
