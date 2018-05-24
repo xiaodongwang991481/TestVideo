@@ -1,9 +1,9 @@
 #include <jni.h>
 #include <string>
-#include <android/log.h>
-#include <android/bitmap.h>
 #include <vector>
 #include <utility>
+#include <android/log.h>
+#include <android/bitmap.h>
 
 using namespace std;
 
@@ -47,7 +47,7 @@ class CameraStreamHolder {
     JNIEnv * const env;
     AVFormatContext 	*formatCtx = NULL;
 	AVInputFormat *inputFormat = NULL;
-	AVDictionary *options = NULL;
+	AVDictionary **options = NULL;
     AVCodecContext  	*codecCtx = NULL;
     AVFrame         	*decodedFrame = NULL;
     AVFrame         	*frameRGBA = NULL;
@@ -61,11 +61,13 @@ public:
             jobject callback
     ) : env(env), source(source), camera_source(env->GetStringUTFChars(source, NULL)),
         width(width), height(height), callback(callback) {
+        LOGI("create camera holder source: %s.\n", camera_source);
         if (!env->IsSameObject(dests, NULL)) {
             int destLength = env->GetArrayLength(dests);
             for (int i = 0; i < destLength; i++) {
                 jstring dest = (jstring)(env->GetObjectArrayElement(dests, i));
                 const char *camera_dest = env->GetStringUTFChars(dest, NULL);
+                LOGI("create camer dest %s for source %s.\n", camera_dest, camera_source);
                 this->dests.push_back(dest);
 				camera_dests.push_back(camera_dest);
                 oformatCtxs.push_back(NULL);
@@ -74,6 +76,7 @@ public:
     }
 
     void applyBitmapCallback() {
+        LOGI("apply bitmap callback on %s.\n", camera_source);
         if (env->IsSameObject(callback, NULL)) {
             return;
         }
@@ -83,6 +86,7 @@ public:
     }
 
     bool applyFinishCallback() {
+        LOGI("apply finish callback on %s.\n", camera_source);
         if (env->IsSameObject(callback, NULL)) {
             return true;
         }
@@ -92,6 +96,7 @@ public:
     }
 
     jobject createBitmap() {
+        LOGI("create bitmap");
         //get Bitmap class and createBitmap method ID
         jclass javaBitmapClass = (jclass)env->FindClass("android/graphics/Bitmap");
         jmethodID mid = env->GetStaticMethodID(
@@ -160,6 +165,13 @@ public:
         ocodec->channels = icodec->channels;
     }
 
+    void check_error(int err_code) {
+        void* buf = av_malloc(1024);
+        av_strerror(err_code, (char*)buf, 1024);
+        LOGE("error code %d: %s", err_code, buf);
+        av_free(buf);
+    }
+
     bool init() {
         if (initialized) {
             LOGI("is already initialized.\n")
@@ -173,62 +185,71 @@ public:
 			strncmp (camera_source, device_prefix, device_prefix_len) == 0
 		) {
 			inputFormat = av_find_input_format("v4l2");
-			av_dict_set(&options, "framerate", "20", 0);
+			av_dict_set(options, "framerate", "20", 0);
 		}
         // Open video file
-        if(avformat_open_input(&formatCtx, camera_source, inputFormat, &options) != 0){
+        int err_code;
+        if((err_code=avformat_open_input(&formatCtx, camera_source, inputFormat, options)) != 0){
             LOGE("Couldn't open input %s.\n", camera_source);
+            check_error(err_code);
             return false;
         }
+        LOGI("camera input %s is opened.\n", camera_source);
         // Retrieve stream information
         if(avformat_find_stream_info(formatCtx, NULL) < 0){
-            LOGE("FAILED to find stream info %s", camera_source);
+            LOGE("FAILED to find stream info %s.\n", camera_source);
             return false; // Couldn't find stream information
         }
+        LOGI("read camera %s stream info success.\n", camera_source);
         // Dump information about file onto standard error
         av_dump_format(formatCtx, 0, camera_source, 0);
         videoStream = av_find_best_stream(formatCtx, AVMEDIA_TYPE_VIDEO, -1, -1, &pCodec, 0);
         if (videoStream < 0) {
-            LOGE("Didn't find a video stream");
+            LOGE("Didn't find a video stream.\n", videoStream);
             return false; // Didn't find a video stream
         }
-        // Get a pointer to the codec context for the video stream
-        codecCtx = avcodec_alloc_context3(pCodec);
-
-        if(avcodec_copy_context(codecCtx, formatCtx->streams[videoStream]->codec) < 0) {
-            fprintf(stderr, "Couldn't copy codec context");
-            return false; // Error copying codec context
-        }
-        if (width == 0) {
-            width = codecCtx->width;
-        }
-        if (height == 0) {
-            height = codecCtx->height;
-        }
-        bitmap = createBitmap();
-        // Find the decoder for the video stream
-        pCodec = avcodec_find_decoder(codecCtx->codec_id);
+        LOGI("find video stream %d.\n", videoStream);
         if(pCodec == NULL) {
             LOGE("Unsupported codec");
             return false; // Codec not found
         }
+        LOGI("get codec success.\n")
+        // Get a pointer to the codec context for the video stream
+        codecCtx = avcodec_alloc_context3(pCodec);
+        if(avcodec_copy_context(codecCtx, formatCtx->streams[videoStream]->codec) < 0) {
+            LOGE("Couldn't copy codec context.\n");
+            return false; // Error copying codec context
+        }
+        LOGI("get codec context success.\n")
+        if (width == 0) {
+            width = codecCtx->width;
+        }
+        LOGI("get width %d.\n", width);
+        if (height == 0) {
+            height = codecCtx->height;
+        }
+        LOGI("get height %d.\n", height);
+        bitmap = createBitmap();
         // Open codec
         if(avcodec_open2(codecCtx, pCodec, NULL) < 0){
             LOGE("Could not open codec");
             return false; // Could not open codec
         }
+        LOGI("open codec success.\n");
         // Allocate video frame
         decodedFrame = av_frame_alloc();
         if (decodedFrame == NULL) {
             LOGE("AVFrame could not be allocated")
             return false;
         }
+        LOGI("alloc decoded frame success.\n");
         // Allocate an AVFrame structure
         frameRGBA = av_frame_alloc();
         if(frameRGBA == NULL){
             LOGE("AVFrameRGBA could not be allocated");
             return false;
         }
+        LOGI("alloc rgba frame success.\n");
         //get the scaling context
         sws_ctx = sws_getContext (
                 codecCtx->width,
@@ -242,6 +263,7 @@ public:
                 NULL,
                 NULL
         );
+        LOGI("get sws context.\n");
         AVStream* istream = formatCtx->streams[videoStream];
         int destLength = dests.size();
         for (int i = 0; i < destLength; i++) {
@@ -250,6 +272,7 @@ public:
                 LOGE("oformatCtx %s is failed to alloc.\n", camera_dest);
                 return false;
             }
+            LOGI("alloc output context for %s.\n", camera_dest);
             AVFormatContext* oformatCtx = oformatCtxs[i];
             if(avio_open2(
                     &(oformatCtx->pb), camera_dest,
@@ -258,34 +281,41 @@ public:
                 LOGE("failed to open AVIO: %s.\n", camera_dest)
                 return false;
             }
+            LOGI("open avio for %s success.\n", camera_dest);
             AVStream* ostream = avformat_new_stream(oformatCtx, NULL);
             if (ostream == NULL) {
                 LOGE("failed to create stream: %s.\n", camera_dest);
                 return false;
             }
+            LOGI("open oput stream for %s success.\n", camera_dest);
             copy_video_stream_info(ostream, istream, oformatCtx);
             av_dump_format(oformatCtx, 0, camera_dest, 1);
             if(avformat_write_header(oformatCtx, NULL) != 0){
                 LOGE("failed to write header: %s.\n", camera_dest);
                 return false;
             }
+            LOGI("write header to %s.\n", camera_dest);
         }
         if (AndroidBitmap_lockPixels(env, bitmap, &buffer) < 0)
             return false;
+        LOGI("lock buffer %p.\n", buffer);
         avpicture_fill(
                 (AVPicture *)frameRGBA, (const uint8_t *)buffer, AV_PIX_FMT_RGBA,
                 width, height
         );
+        LOGI("fill picture with buffer");
         initialized = true;
         return true;
     }
 
     bool process_packets(bool decode=true, bool sync=false) {
+        LOGI("process packets with decode=%d sync=%d", decode, sync);
         AVPacket packet;
         av_init_packet(&packet);
         while(av_read_frame(formatCtx, &packet) >= 0){
             if(packet.stream_index == videoStream){
                 if (decode) {
+                    LOGI("decode one packet.\n")
                     decode_packet(packet);
                 }
                 int destLength = dests.size();
@@ -294,6 +324,8 @@ public:
                     AVFormatContext* oformatCtx = oformatCtxs[i];
                     if(av_interleaved_write_frame(oformatCtx, &packet) < 0) {
                         LOGE("failed to write frame: %s.\n", camera_dest);
+                    } else {
+                        LOGI("write one frame: %s.\n", camera_dest);
                     }
                 }
             } else {
@@ -305,9 +337,14 @@ public:
             }
         }
         if (decode) {
+            LOGI("decode remain packets.\n");
             while (1) {
+                LOGI("decode one packet.\n");
                 if (!decode_packet(packet)) {
+                    LOGI("no remain packet is decoded.\n");
                     break;
+                } else {
+                    LOGI("one remain packet is decoded.\n");
                 }
             }
         }
@@ -317,6 +354,8 @@ public:
             AVFormatContext* oformatCtx = oformatCtxs[i];
             if(av_write_trailer(oformatCtx) < 0) {
                 LOGE("failed to write trailer: %s.\n", camera_dest);
+            } else {
+                LOGI("write trailer: %s.\n", camera_dest);
             }
         }
         return true;
@@ -354,6 +393,7 @@ public:
     }
 
     ~CameraStreamHolder() {
+        LOGI("destruct camera holder %s.\n", camera_source);
         if (buffer != NULL) {
             AndroidBitmap_unlockPixels(env, bitmap);
             buffer = NULL;
@@ -380,7 +420,7 @@ public:
             formatCtx = NULL;
         }
 		if (options != NULL) {
-			av_dict_free(&options);
+			av_dict_free(options);
 			options = NULL;
 		}
         if (camera_source != NULL) {
@@ -422,6 +462,7 @@ Java_com_example_xiaodong_testvideo_FFmpeg_initJNI(
         JNIEnv *env,
         jclass jclass1
 ) {
+    LOGI("FFmpeg initialization.\n");
 	avdevice_register_all(); /* for device & add libavdevice/avdevice.h headerfile*/
     avcodec_register_all();
     av_register_all();

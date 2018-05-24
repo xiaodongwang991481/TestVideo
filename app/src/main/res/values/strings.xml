@@ -18,6 +18,6 @@
     <string name="camera_dests_header">Camera Dests</string>
     <string name="camera_dest_properties_header">Camera Dest Properties</string>
     <string name="listview_footer">End</string>
-    <string name="title_activity_video_play">VideoPlayActivity</string>
-    <string name="dummy_button">Dummy Button</string>
+    <string name="title_activity_video_play">VideoPlayer</string>
+    <string name="select_video">Select Video</string>
 </resources>

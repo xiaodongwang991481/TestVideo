@@ -14,7 +14,16 @@ import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.activity_video_play.*
 import android.provider.MediaStore
 import android.content.Intent
-
+import android.support.v4.app.ActivityCompat.startActivityForResult
+import android.R.attr.data
+import android.net.Uri
+import android.os.Environment.getExternalStorageDirectory
+import android.content.ContentUris
+import android.provider.DocumentsContract
+import android.os.Build
+import android.content.ContentResolver
+import android.content.Context
+import android.os.Environment
 
 
 /**
@@ -49,11 +58,19 @@ class VideoPlayActivity : AppCompatActivity() {
      * system UI. This is to prevent the jarring behavior of controls going away
      * while interacting with activity UI.
      */
-    private val mDelayHideTouchListener = View.OnTouchListener { _, _ ->
-        if (AUTO_HIDE) {
-            delayedHide(AUTO_HIDE_DELAY_MILLIS)
+    // private val mDelayHideTouchListener = View.OnTouchListener { _, _ ->
+    //     if (AUTO_HIDE) {
+    //         delayedHide(AUTO_HIDE_DELAY_MILLIS)
+    //   }
+    //     false
+    // }
+    inner class SelectVideo : View.OnClickListener {
+        override fun onClick(v: View?) {
+            val intent = Intent()
+            intent.type = "video/*"
+            intent.action = Intent.ACTION_GET_CONTENT
+            startActivityForResult(Intent.createChooser(intent, "Choose a file"), REQUEST_TAKE_GALLERY_VIDEO)
         }
-        false
     }
 
     private val LOG_TAG = "VideoPlayActivity"
@@ -63,10 +80,45 @@ class VideoPlayActivity : AppCompatActivity() {
     private var backgroundTask: VideoProcessTask? = null
     public var cameraCallback = CallbackForCamera()
 
+    fun getUriRealPath(contentUri: Uri): String? {
+        val proj = arrayOf(MediaStore.Images.Media.DATA)
+        val cursor = contentResolver.query(contentUri, proj, null, null, null) ?: return null
+        val column_index = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA)
+        cursor.moveToFirst()
+        return cursor.getString(column_index)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (resultCode == Activity.RESULT_OK) {
+            if (requestCode == REQUEST_TAKE_GALLERY_VIDEO) {
+                val selectedImageUri = data?.getData()
+                Log.i(LOG_TAG, "selected image uri: $selectedImageUri")
+                selectedImageUri?.let {
+                    val selectedImagePath = getUriRealPath(selectedImageUri)
+                    Log.i(LOG_TAG, "selected image $selectedImagePath")
+                    selectedImagePath?.let {
+                        cameraSource = selectedImagePath
+                        stopBackgroundTask()
+                        startBackgroundTask()
+                    } ?: let {
+                        Log.e(LOG_TAG,"failed to get video path from Uri $selectedImageUri")
+                    }
+                } ?: let {
+                    Log.e(LOG_TAG, "failed to get image uri")
+                }
+            } else {
+                Log.e(LOG_TAG, "unkown request code: $requestCode")
+            }
+        } else {
+            Log.e(LOG_TAG, "failed to get activity result")
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         setContentView(R.layout.activity_video_play)
+        Log.i(LOG_TAG, "VideoPlayActivity created")
         if (intent.hasExtra("camera")) {
             var camera = intent.getParcelableExtra("camera") as Camera
             Log.i(LOG_TAG, "get camera $camera")
@@ -84,7 +136,7 @@ class VideoPlayActivity : AppCompatActivity() {
         // Upon interacting with UI controls, delay any scheduled hide()
         // operations to prevent the jarring behavior of controls going away
         // while interacting with the UI.
-        dummy_button.setOnTouchListener(mDelayHideTouchListener)
+        select_video.setOnClickListener(SelectVideo())
     }
 
     override fun onSaveInstanceState(outState: Bundle?) {
@@ -101,22 +153,32 @@ class VideoPlayActivity : AppCompatActivity() {
         }
     }
 
-    override fun onStart() {
-        super.onStart()
-        Log.i(LOG_TAG, "start activity")
+    fun startBackgroundTask() {
+        Log.i(LOG_TAG, "start background task")
         backgroundTask = backgroundTask ?: VideoProcessTask(this).apply {
             execute()
         }
     }
 
+    fun stopBackgroundTask() {
+        Log.i(LOG_TAG, "stop background task")
+        backgroundTask?.apply {
+            cancel(true)
+            get()
+        }
+        backgroundTask = null
+    }
+
+    override fun onStart() {
+        super.onStart()
+        Log.i(LOG_TAG, "start activity")
+        // startBackgroundTask()
+    }
+
     override fun onStop() {
         super.onStop()
         Log.i(LOG_TAG, "stop activity")
-        backgroundTask?.apply {
-                cancel(true)
-                get()
-        }
-        backgroundTask = null
+        // stopBackgroundTask()
     }
 
     override fun onResume() {
@@ -216,5 +278,7 @@ class VideoPlayActivity : AppCompatActivity() {
          * and a change of the status and navigation bar.
          */
         private val UI_ANIMATION_DELAY = 300
+
+        private val REQUEST_TAKE_GALLERY_VIDEO = 1;
     }
 }
