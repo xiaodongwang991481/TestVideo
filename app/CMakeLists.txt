@@ -23,6 +23,12 @@ include_directories(${ffmpeg_include_dir})
 set(ffmpeg_lib_dir ${CMAKE_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI})
 link_directories(${ffmpeg_lib_dir})
 
+add_library(rtmp SHARED IMPORTED)
+set_target_properties(rtmp PROPERTIES IMPORTED_LOCATION
+    ${ffmpeg_lib_dir}/librtmp.so)
+add_library(x264 SHARED IMPORTED)
+set_target_properties(x264 PROPERTIES IMPORTED_LOCATION
+    ${ffmpeg_lib_dir}/libx264.so)
 add_library(avutil SHARED IMPORTED)
 set_target_properties(avutil PROPERTIES IMPORTED_LOCATION
     ${ffmpeg_lib_dir}/libavutil.so)
@@ -65,6 +71,7 @@ add_library( # Sets the name of the library.
 
 target_link_libraries( # Specifies the target library.
                        native-lib
+
                        avdevice
                        avfilter
                        avformat
@@ -72,6 +79,8 @@ target_link_libraries( # Specifies the target library.
                        swresample
                        swscale
                        avutil
+                       rtmp
+                       x264
                        -ljnigraphics
                        # Links the target library to the log library
                        # included in the NDK.

@@ -8,7 +8,7 @@ class CallbackForCamera: CallbackFromJNI {
     private val LOG_TAG = "CallbackForCamera"
     private var finished = false
 
-    override fun bitMapCallback(bitmap: Bitmap?) {
+    override fun bitmapCallback(bitmap: Bitmap?) {
         Log.i(LOG_TAG, "bitmapCallback")
     }
 

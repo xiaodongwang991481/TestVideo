@@ -1,5 +1,6 @@
 package com.example.xiaodong.testvideo
 
+import android.Manifest
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
 import kotlinx.android.synthetic.main.activity_main.*
@@ -8,6 +9,9 @@ import android.os.PersistableBundle
 import android.util.Log
 import android.view.View
 import android.widget.AdapterView
+import android.Manifest.permission
+import android.Manifest.permission.SEND_SMS
+import android.content.pm.PackageManager
 
 
 class MainActivity : AppCompatActivity() {
@@ -47,6 +51,7 @@ class MainActivity : AppCompatActivity() {
     private var camerasAdapter: CameraAdapter? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        requestPermissions()
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         // Example of a call to a native method
@@ -191,6 +196,25 @@ class MainActivity : AppCompatActivity() {
 
     private fun getInitialCameraList() : ArrayList<Camera> {
         return dbHelper!!.getAllCameras()
+    }
+
+    fun requestPermissions() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+            if (checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_DENIED) {
+                Log.d("permission", "permission denied to CAMERA - requesting it")
+                val permissions = arrayOf<String>(Manifest.permission.CAMERA)
+                requestPermissions(permissions, PERMISSION_REQUEST_CODE)
+            }
+            if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_DENIED) {
+                Log.d("permission", "permission denied to CAMERA - requesting it")
+                val permissions = arrayOf<String>(Manifest.permission.CAMERA)
+                requestPermissions(permissions, PERMISSION_REQUEST_CODE)
+            }
+        }
+    }
+
+    companion object {
+        private val PERMISSION_REQUEST_CODE = 1
     }
 
 }

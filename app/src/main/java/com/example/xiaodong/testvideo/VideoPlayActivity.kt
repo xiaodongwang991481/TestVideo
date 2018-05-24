@@ -172,13 +172,13 @@ class VideoPlayActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         Log.i(LOG_TAG, "start activity")
-        // startBackgroundTask()
+        startBackgroundTask()
     }
 
     override fun onStop() {
         super.onStop()
         Log.i(LOG_TAG, "stop activity")
-        // stopBackgroundTask()
+        stopBackgroundTask()
     }
 
     override fun onResume() {

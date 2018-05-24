@@ -41,6 +41,8 @@ class CameraStreamHolder {
     int height;
     jobject bitmap;
     jobject callback;
+    jmethodID bitmapCallbackMethod;
+    jmethodID finishCallbackMethod;
     void* buffer;
     bool initialized = false;
     int 				videoStream = -1;
@@ -75,14 +77,41 @@ public:
         }
     }
 
+    bool initBitmapCallbackMethod() {
+        LOGI("init bitmapCallback method");
+        jclass cbClass = env->FindClass("com/example/xiaodong/testvideo/CallbackFromJNI");
+        if (env->IsSameObject(cbClass, NULL)) {
+            LOGE("failed to get CallbackFromJNI class");
+            return false;
+        }
+        bitmapCallbackMethod = env->GetMethodID(cbClass, "bitmapCallback", "(Landroid/graphics/Bitmap;)V");
+        if (bitmapCallbackMethod == NULL) {
+            LOGE("failed to get bitmapCallback method");
+            return false;
+        }
+        return true;
+    }
+
     void applyBitmapCallback() {
         LOGI("apply bitmap callback on %s.\n", camera_source);
         if (env->IsSameObject(callback, NULL)) {
             return;
         }
+        env->CallVoidMethod(callback, bitmapCallbackMethod, bitmap);
+    }
+
+    bool initFinishCallbackMethod() {
+        LOGI("init finish callback method");
         jclass cbClass = env->FindClass("com/example/xiaodong/testvideo/CallbackFromJNI");
-        jmethodID method = env->GetMethodID(cbClass, "bitmapCallback", "(Landroid/graphics/Bitmap;)V");
-        env->CallVoidMethod(callback, method, bitmap);
+        if (env->IsSameObject(cbClass, NULL)) {
+            LOGE("failed to get CallbackFromJNI class");
+            return false;
+        }
+        finishCallbackMethod = env->GetMethodID(cbClass, "finishCallback", "()Z");
+        if (finishCallbackMethod == NULL) {
+            LOGE("failed to get finishCallback method");
+            return false;
+        }
     }
 
     bool applyFinishCallback() {
@@ -90,23 +119,33 @@ public:
         if (env->IsSameObject(callback, NULL)) {
             return true;
         }
-        jclass cbClass = env->FindClass("com/example/xiaodong/testvideo/CallbackFromJNI");
-        jmethodID method = env->GetMethodID(cbClass, "finishCallback", "()Z");
-        return env->CallBooleanMethod(callback, method);
+        return env->CallBooleanMethod(callback, finishCallbackMethod);
     }
 
     jobject createBitmap() {
         LOGI("create bitmap");
         //get Bitmap class and createBitmap method ID
         jclass javaBitmapClass = (jclass)env->FindClass("android/graphics/Bitmap");
+        if (env->IsSameObject(javaBitmapClass, NULL)) {
+            LOGE("Failed to get Bitmap Class");
+            return NULL;
+        }
         jmethodID mid = env->GetStaticMethodID(
                 javaBitmapClass, "createBitmap",
                 "(IILandroid/graphics/Bitmap$Config;)Landroid/graphics/Bitmap;"
         );
+        if (mid == NULL) {
+            LOGE("failed to get CreateBitmap method");
+            return NULL;
+        }
         //create Bitmap.Config
         //reference: https://forums.oracle.com/thread/1548728
         jstring jConfigName = env->NewStringUTF("ARGB_8888");
         jclass bitmapConfigClass = env->FindClass("android/graphics/Bitmap$Config");
+        if (env->IsSameObject(bitmapConfigClass, NULL)) {
+            LOGE("failed to get Bitmap$Config class");
+            return NULL;
+        }
         jobject javaBitmapConfig = env->CallStaticObjectMethod(
                 bitmapConfigClass,
                 env->GetStaticMethodID(
@@ -115,10 +154,19 @@ public:
                 ),
                 jConfigName
         );
+        if (env->IsSameObject(javaBitmapConfig, NULL)) {
+            LOGE("failed to get Bitmap$Config instance");
+            return NULL;
+        }
         //create the bitmap
-        return env->CallStaticObjectMethod(
+        jobject localBitmap = env->CallStaticObjectMethod(
                 javaBitmapClass, mid, width, height, javaBitmapConfig
         );
+        if (env->IsSameObject(localBitmap, NULL)) {
+            LOGE("failed to get Bitmap instance");
+            return NULL;
+        }
+        return reinterpret_cast<jobject>(env->NewGlobalRef(localBitmap));
     }
 
     void copy_stream_info(AVStream* ostream, AVStream* istream, AVFormatContext* ofmt_ctx){
@@ -230,6 +278,18 @@ public:
         }
         LOGI("get height %d.\n", height);
         bitmap = createBitmap();
+        if (env->IsSameObject(bitmap, NULL)) {
+            LOGE("failed to create bitmap");
+            return false;
+        }
+        if (!initBitmapCallbackMethod()) {
+            LOGE("failed to init bitmap callback method");
+            return false;
+        }
+        if (!initFinishCallbackMethod()) {
+            LOGE("failed to init finish callback method");
+            return false;
+        }
         // Open codec
         if(avcodec_open2(codecCtx, pCodec, NULL) < 0){
             LOGE("Could not open codec");
@@ -397,6 +457,9 @@ public:
         if (buffer != NULL) {
             AndroidBitmap_unlockPixels(env, bitmap);
             buffer = NULL;
+        }
+        if (!env->IsSameObject(bitmap, NULL)) {
+            env->DeleteGlobalRef(bitmap);
         }
         if (sws_ctx != NULL) {
             sws_freeContext(sws_ctx);
