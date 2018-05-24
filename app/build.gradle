@@ -5,69 +5,69 @@ apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
 
 android {
-    compileSdkVersion 27
-    defaultConfig {
-        applicationId "com.example.xiaodong.testvideo"
-        minSdkVersion 26
-        targetSdkVersion 27
-        versionCode 1
-        versionName "1.0"
-        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+        compileSdkVersion 27
+        defaultConfig.with {
+            applicationId "com.example.xiaodong.testvideo"
+            minSdkVersion 26
+            targetSdkVersion 27
+            versionCode 1
+            versionName "1.0"
+            testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+            externalNativeBuild {
+                cmake {
+                    cppFlags "-std=c++14 -frtti -fexceptions"
+                }
+            }
+        }
+        splits {
+
+            // Configures multiple APKs based on ABI.
+            abi {
+
+                // Enables building multiple APKs per ABI.
+                enable true
+
+                // By default all ABIs are included, so use reset() and include to specify that we only
+                // want APKs for x86 and x86_64.
+
+                // Resets the list of ABIs that Gradle should create APKs for to none.
+                reset()
+
+                // Specifies a list of ABIs that Gradle should create APKs for.
+                include "arm64-v8a"
+
+                // Specifies that we do not want to also generate a universal APK that includes all ABIs.
+                universalApk false
+            }
+        }
+        buildTypes {
+            debug {
+                debuggable true
+                minifyEnabled false
+                proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+                jniDebuggable true
+                renderscriptDebuggable true
+            }
+            // release {
+            //    debuggable true
+            //    jniDebuggable true
+            //    minifyEnabled false
+            //    proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            //    renderscriptDebuggable false
+            // }
+        }
+        // sourceSets {
+        //    main {
+        // let gradle pack the shared library into apk
+        // jniLibs.srcDirs = ['libs']
+        //    }
+        // }
         externalNativeBuild {
             cmake {
-                cppFlags "-std=c++14 -frtti -fexceptions"
+                path "CMakeLists.txt"
             }
         }
     }
-    splits {
-
-        // Configures multiple APKs based on ABI.
-        abi {
-
-            // Enables building multiple APKs per ABI.
-            enable true
-
-            // By default all ABIs are included, so use reset() and include to specify that we only
-            // want APKs for x86 and x86_64.
-
-            // Resets the list of ABIs that Gradle should create APKs for to none.
-            reset()
-
-            // Specifies a list of ABIs that Gradle should create APKs for.
-            include "arm64-v8a"
-
-            // Specifies that we do not want to also generate a universal APK that includes all ABIs.
-            universalApk false
-        }
-    }
-    buildTypes {
-        debug {
-            debuggable true
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            jniDebuggable true
-            renderscriptDebuggable true
-        }
-        // release {
-        //    debuggable true
-        //    jniDebuggable true
-        //    minifyEnabled false
-        //    proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-        //    renderscriptDebuggable false
-        // }
-    }
-    // sourceSets {
-    //    main {
-    // let gradle pack the shared library into apk
-    // jniLibs.srcDirs = ['libs']
-    //    }
-    // }
-    externalNativeBuild {
-        cmake {
-            path "CMakeLists.txt"
-        }
-    }
-}
 
 // Map for the version code that gives each ABI a value.
 ext.abiCodes = ['armeabi-v7a': 1, 'arm64-v8a': 2]
@@ -79,8 +79,8 @@ import com.android.build.OutputFile
 
 android.applicationVariants.all { variant ->
 
-    // Assigns a different version code for each output APK
-    // other than the universal APK.
+        // Assigns a different version code for each output APK
+        // other than the universal APK.
     variant.outputs.each { output ->
 
         // Stores the value of ext.abiCodes that is associated with the ABI for this variant.

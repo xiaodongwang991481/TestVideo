@@ -47,7 +47,7 @@ class CameraStreamHolder {
     JNIEnv * const env;
     AVFormatContext 	*formatCtx = NULL;
 	AVInputFormat *inputFormat = NULL;
-	AVDictionary *options = NULL;
+	AVDictionary **options = NULL;
     AVCodecContext  	*codecCtx = NULL;
     AVFrame         	*decodedFrame = NULL;
     AVFrame         	*frameRGBA = NULL;
@@ -165,6 +165,12 @@ public:
         ocodec->channels = icodec->channels;
     }
 
+    void check_error(int err_code) {
+        char* buf = av_malloc(1024);
+        av_strerror(err_code, buf, 1024);
+        LOGE("error code %d: %s", err_code, buf)
+    }
+
     bool init() {
         if (initialized) {
             LOGI("is already initialized.\n")
@@ -178,11 +184,13 @@ public:
 			strncmp (camera_source, device_prefix, device_prefix_len) == 0
 		) {
 			inputFormat = av_find_input_format("v4l2");
-			av_dict_set(&options, "framerate", "20", 0);
+			av_dict_set(options, "framerate", "20", 0);
 		}
         // Open video file
-        if(avformat_open_input(&formatCtx, camera_source, inputFormat, &options) != 0){
+        int err_code;
+        if((err_code=avformat_open_input(&formatCtx, camera_source, inputFormat, options)) != 0){
             LOGE("Couldn't open input %s.\n", camera_source);
+            check_error(err_code);
             return false;
         }
         LOGI("camera input %s is opened.\n", camera_source);
@@ -411,7 +419,7 @@ public:
             formatCtx = NULL;
         }
 		if (options != NULL) {
-			av_dict_free(&options);
+			av_dict_free(options);
 			options = NULL;
 		}
         if (camera_source != NULL) {
