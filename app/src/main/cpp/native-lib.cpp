@@ -166,9 +166,10 @@ public:
     }
 
     void check_error(int err_code) {
-        char* buf = av_malloc(1024);
-        av_strerror(err_code, buf, 1024);
-        LOGE("error code %d: %s", err_code, buf)
+        void* buf = av_malloc(1024);
+        av_strerror(err_code, (char*)buf, 1024);
+        LOGE("error code %d: %s", err_code, buf);
+        av_free(buf);
     }
 
     bool init() {
