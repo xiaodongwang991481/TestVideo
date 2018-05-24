@@ -23,6 +23,8 @@ import android.provider.DocumentsContract
 import android.os.Build
 import android.content.ContentResolver
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Paint
 import android.os.Environment
 
 
@@ -78,7 +80,7 @@ class VideoPlayActivity : AppCompatActivity() {
     public var cameraSource: String? = null
     public var cameraDests: Array<String>? = null
     private var backgroundTask: VideoProcessTask? = null
-    public var cameraCallback = CallbackForCamera()
+    public var cameraCallback = CallbackForCamera(this)
 
     fun getUriRealPath(contentUri: Uri): String? {
         val proj = arrayOf(MediaStore.Images.Media.DATA)
@@ -113,6 +115,15 @@ class VideoPlayActivity : AppCompatActivity() {
         } else {
             Log.e(LOG_TAG, "failed to get activity result")
         }
+    }
+
+    fun drawBitmap(bitmap: Bitmap) {
+        var canvas = camera_play.holder.lockHardwareCanvas()
+        val paint = Paint().apply {
+            color = Color.BLACK
+        }
+        canvas.drawBitmap(bitmap, 0f, 0f, paint)
+        camera_play.holder.unlockCanvasAndPost(canvas)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

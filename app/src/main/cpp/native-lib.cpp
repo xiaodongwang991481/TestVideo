@@ -14,6 +14,7 @@ extern "C" {
 #include <libavutil/pixfmt.h>
 #include <libavdevice/avdevice.h>
 #include <libavutil/dict.h>
+#include <libavutil/time.h>
 }
 
 #define LOG_TAG "android-ffmpeg"
@@ -312,11 +313,13 @@ public:
         LOGI("process packets with decode=%d sync=%d", decode, sync);
         AVPacket packet;
         av_init_packet(&packet);
+        int64_t base_time_ms = av_gettime();
+        int64_t base_pts = 0;
         while(av_read_frame(formatCtx, &packet) >= 0){
             if(packet.stream_index == videoStream){
                 if (decode) {
                     LOGI("decode one packet.\n")
-                    decode_packet(packet);
+                    decode_packet(packet, &base_time_ms, &base_pts, sync);
                 }
                 int destLength = dests.size();
                 for (int i = 0; i < destLength; i++) {
@@ -340,7 +343,7 @@ public:
             LOGI("decode remain packets.\n");
             while (1) {
                 LOGI("decode one packet.\n");
-                if (!decode_packet(packet)) {
+                if (!decode_packet(packet, &base_time_ms, &base_pts, sync)) {
                     LOGI("no remain packet is decoded.\n");
                     break;
                 } else {
@@ -361,14 +364,8 @@ public:
         return true;
     }
 
-    bool decode_packet(AVPacket& packet) {
+    bool decode_packet(AVPacket& packet, int64_t* base_time_ms, int64_t* base_pts, bool sync=false) {
         AVStream* istream = formatCtx->streams[videoStream];
-        double time_ms = 0;
-        if (istream->time_base.den > 0) {
-            time_ms = packet.pts * istream->time_base.num * 1000 / istream->time_base.den;
-        }
-        LOGI("packet pts=%ld dts=%ld duration=$ld.\n", packet.pts, packet.dts, packet.duration);
-        LOGI("time ms=%lf.\n", time_ms);
         // if (sync) {
         //     av_usleep(time_ms * 1000);
         // }
@@ -379,7 +376,25 @@ public:
             LOGE("Decode Error.\n");
             return false;
         } else if (frameFinished) {
-            LOGI("packet after decode pts=%ld dts=%ld duration=$ld.\n", packet.pts, packet.dts, packet.duration);
+            if (sync) {
+                int64_t time_ms_wait = 0;
+                int64_t time_ms_current = av_gettime();
+                int64_t time_ms_elapsed = time_ms_current - *base_time_ms;
+                if (istream->time_base.den > 0) {
+                    int64_t time_ms_duration = (packet.pts - *base_pts) * istream->time_base.num * 1000 / istream->time_base.den;
+                    time_ms_wait = time_ms_duration - time_ms_elapsed;
+                }
+                LOGI("time ms elapsed: %lld", time_ms_elapsed);
+                LOGI("time ms to wait: %lld", time_ms_wait);
+                if (time_ms_wait > 10) {
+                    av_usleep(time_ms_wait * 1000);
+                }
+                if (time_ms_wait < -10) {
+                    *base_pts = packet.pts;
+                    *base_time_ms = time_ms_current;
+                }
+            }
+            LOGI("packet pts=%ld dts=%ld duration=$ld.\n", packet.pts, packet.dts, packet.duration);
             sws_scale(sws_ctx, (const uint8_t *const *) decodedFrame->data,
                       decodedFrame->linesize, 0, codecCtx->height,
                       frameRGBA->data, frameRGBA->linesize

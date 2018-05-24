@@ -8,8 +8,16 @@ class CallbackForCamera: CallbackFromJNI {
     private val LOG_TAG = "CallbackForCamera"
     private var finished = false
 
+    private val activity: VideoPlayActivity
+    constructor(activity: VideoPlayActivity) : super() {
+        this.activity = activity
+    }
+
     override fun bitMapCallback(bitmap: Bitmap?) {
         Log.i(LOG_TAG, "bitmapCallback")
+        bitmap?.let {
+            activity.drawBitmap(bitmap)
+        }
     }
 
     override fun finishCallback(): Boolean {
