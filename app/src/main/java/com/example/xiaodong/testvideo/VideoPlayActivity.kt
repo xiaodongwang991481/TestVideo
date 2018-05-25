@@ -118,12 +118,11 @@ class VideoPlayActivity : AppCompatActivity() {
     }
 
     fun drawBitmap(bitmap: Bitmap) {
-        var canvas = camera_play.holder.lockHardwareCanvas()
-        val paint = Paint().apply {
-            color = Color.BLACK
+        var canvas = camera_play.holder.lockCanvas()
+        canvas?.let {
+            canvas.drawBitmap(bitmap, 0f, 0f, null)
+            camera_play.holder.unlockCanvasAndPost(canvas)
         }
-        canvas.drawBitmap(bitmap, 0f, 0f, paint)
-        camera_play.holder.unlockCanvasAndPost(canvas)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -166,6 +165,7 @@ class VideoPlayActivity : AppCompatActivity() {
 
     fun startBackgroundTask() {
         Log.i(LOG_TAG, "start background task")
+        cameraCallback.clearFinished()
         backgroundTask = backgroundTask ?: VideoProcessTask(this).apply {
             execute()
         }
@@ -173,9 +173,9 @@ class VideoPlayActivity : AppCompatActivity() {
 
     fun stopBackgroundTask() {
         Log.i(LOG_TAG, "stop background task")
+        cameraCallback.setFinished()
         backgroundTask?.apply {
-            cancel(true)
-            get()
+            waitFinish()
         }
         backgroundTask = null
     }
