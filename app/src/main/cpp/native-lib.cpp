@@ -42,13 +42,15 @@ class CameraStreamHolder {
     int height;
     jobject bitmap;
     jobject callback;
+    jmethodID bitmapCallbackMethod;
+    jmethodID finishCallbackMethod;
     void* buffer;
     bool initialized = false;
     int 				videoStream = -1;
     JNIEnv * const env;
     AVFormatContext 	*formatCtx = NULL;
 	AVInputFormat *inputFormat = NULL;
-	AVDictionary **options = NULL;
+	AVDictionary *options = NULL;
     AVCodecContext  	*codecCtx = NULL;
     AVFrame         	*decodedFrame = NULL;
     AVFrame         	*frameRGBA = NULL;
@@ -76,14 +78,44 @@ public:
         }
     }
 
+    bool initBitmapCallbackMethod() {
+        LOGI("init bitmapCallback method.\n");
+        jclass cbClass = env->FindClass("com/example/xiaodong/testvideo/CallbackFromJNI");
+        if (env->IsSameObject(cbClass, NULL)) {
+            LOGE("failed to get CallbackFromJNI class.\n");
+            return false;
+        }
+        bitmapCallbackMethod = env->GetMethodID(cbClass, "bitmapCallback", "(Landroid/graphics/Bitmap;)V");
+        if (bitmapCallbackMethod == NULL) {
+            LOGE("failed to get bitmapCallback method.\n");
+            return false;
+        }
+        LOGI("gogt bitmapCallback method.\n");
+        return true;
+    }
+
     void applyBitmapCallback() {
         LOGI("apply bitmap callback on %s.\n", camera_source);
         if (env->IsSameObject(callback, NULL)) {
             return;
         }
+        env->CallVoidMethod(callback, bitmapCallbackMethod, bitmap);
+    }
+
+    bool initFinishCallbackMethod() {
+        LOGI("init finish callback method.\n");
         jclass cbClass = env->FindClass("com/example/xiaodong/testvideo/CallbackFromJNI");
-        jmethodID method = env->GetMethodID(cbClass, "bitmapCallback", "(Landroid/graphics/Bitmap;)V");
-        env->CallVoidMethod(callback, method, bitmap);
+        if (env->IsSameObject(cbClass, NULL)) {
+            LOGE("failed to get CallbackFromJNI class.\n");
+            return false;
+        }
+        finishCallbackMethod = env->GetMethodID(cbClass, "finishCallback", "()Z");
+        if (finishCallbackMethod == NULL) {
+            LOGE("failed to get finishCallback method.\n");
+            return false;
+        }
+        LOGI("got finish callback method.\n");
+        return true;
     }
 
     bool applyFinishCallback() {
@@ -91,23 +123,33 @@ public:
         if (env->IsSameObject(callback, NULL)) {
             return true;
         }
-        jclass cbClass = env->FindClass("com/example/xiaodong/testvideo/CallbackFromJNI");
-        jmethodID method = env->GetMethodID(cbClass, "finishCallback", "()Z");
-        return env->CallBooleanMethod(callback, method);
+        return env->CallBooleanMethod(callback, finishCallbackMethod);
     }
 
     jobject createBitmap() {
         LOGI("create bitmap");
         //get Bitmap class and createBitmap method ID
         jclass javaBitmapClass = (jclass)env->FindClass("android/graphics/Bitmap");
+        if (env->IsSameObject(javaBitmapClass, NULL)) {
+            LOGE("Failed to get Bitmap Class");
+            return NULL;
+        }
         jmethodID mid = env->GetStaticMethodID(
                 javaBitmapClass, "createBitmap",
                 "(IILandroid/graphics/Bitmap$Config;)Landroid/graphics/Bitmap;"
         );
+        if (mid == NULL) {
+            LOGE("failed to get CreateBitmap method");
+            return NULL;
+        }
         //create Bitmap.Config
         //reference: https://forums.oracle.com/thread/1548728
         jstring jConfigName = env->NewStringUTF("ARGB_8888");
         jclass bitmapConfigClass = env->FindClass("android/graphics/Bitmap$Config");
+        if (env->IsSameObject(bitmapConfigClass, NULL)) {
+            LOGE("failed to get Bitmap$Config class");
+            return NULL;
+        }
         jobject javaBitmapConfig = env->CallStaticObjectMethod(
                 bitmapConfigClass,
                 env->GetStaticMethodID(
@@ -116,10 +158,19 @@ public:
                 ),
                 jConfigName
         );
+        if (env->IsSameObject(javaBitmapConfig, NULL)) {
+            LOGE("failed to get Bitmap$Config instance");
+            return NULL;
+        }
         //create the bitmap
-        return env->CallStaticObjectMethod(
+        jobject localBitmap = env->CallStaticObjectMethod(
                 javaBitmapClass, mid, width, height, javaBitmapConfig
         );
+        if (env->IsSameObject(localBitmap, NULL)) {
+            LOGE("failed to get Bitmap instance");
+            return NULL;
+        }
+        return reinterpret_cast<jobject>(env->NewGlobalRef(localBitmap));
     }
 
     void copy_stream_info(AVStream* ostream, AVStream* istream, AVFormatContext* ofmt_ctx){
@@ -168,9 +219,13 @@ public:
 
     void check_error(int err_code) {
         void* buf = av_malloc(1024);
-        av_strerror(err_code, (char*)buf, 1024);
-        LOGE("error code %d: %s", err_code, buf);
-        av_free(buf);
+        if (buf != NULL) {
+            av_strerror(err_code, (char *) buf, 1024);
+            LOGE("error code %d: %s.\n", err_code, buf);
+            av_free(buf);
+        } else {
+            LOGE("failed to alloc buf to print err message.\n");
+        }
     }
 
     bool init() {
@@ -186,19 +241,20 @@ public:
 			strncmp (camera_source, device_prefix, device_prefix_len) == 0
 		) {
 			inputFormat = av_find_input_format("v4l2");
-			av_dict_set(options, "framerate", "20", 0);
+			av_dict_set(&options, "framerate", "20", 0);
 		}
         // Open video file
         int err_code;
-        if((err_code=avformat_open_input(&formatCtx, camera_source, inputFormat, options)) != 0){
+        if((err_code=avformat_open_input(&formatCtx, camera_source, inputFormat, &options)) < 0){
             LOGE("Couldn't open input %s.\n", camera_source);
             check_error(err_code);
             return false;
         }
         LOGI("camera input %s is opened.\n", camera_source);
         // Retrieve stream information
-        if(avformat_find_stream_info(formatCtx, NULL) < 0){
+        if((err_code=avformat_find_stream_info(formatCtx, NULL)) < 0){
             LOGE("FAILED to find stream info %s.\n", camera_source);
+            check_error(err_code);
             return false; // Couldn't find stream information
         }
         LOGI("read camera %s stream info success.\n", camera_source);
@@ -217,8 +273,9 @@ public:
         LOGI("get codec success.\n")
         // Get a pointer to the codec context for the video stream
         codecCtx = avcodec_alloc_context3(pCodec);
-        if(avcodec_copy_context(codecCtx, formatCtx->streams[videoStream]->codec) < 0) {
+        if((err_code = avcodec_copy_context(codecCtx, formatCtx->streams[videoStream]->codec)) < 0) {
             LOGE("Couldn't copy codec context.\n");
+            check_error(err_code);
             return false; // Error copying codec context
         }
         LOGI("get codec context success.\n")
@@ -231,23 +288,36 @@ public:
         }
         LOGI("get height %d.\n", height);
         bitmap = createBitmap();
+        if (env->IsSameObject(bitmap, NULL)) {
+            LOGE("failed to create bitmap.\n");
+            return false;
+        }
+        if (!initBitmapCallbackMethod()) {
+            LOGE("failed to init bitmap callback method.\n");
+            return false;
+        }
+        if (!initFinishCallbackMethod()) {
+            LOGE("failed to init finish callback method.\n");
+            return false;
+        }
         // Open codec
-        if(avcodec_open2(codecCtx, pCodec, NULL) < 0){
-            LOGE("Could not open codec");
+        if((err_code = avcodec_open2(codecCtx, pCodec, NULL)) < 0){
+            LOGE("Could not open codec.\n");
+            check_error(err_code);
             return false; // Could not open codec
         }
         LOGI("open codec success.\n");
         // Allocate video frame
         decodedFrame = av_frame_alloc();
         if (decodedFrame == NULL) {
-            LOGE("AVFrame could not be allocated")
+            LOGE("AVFrame could not be allocated.\n")
             return false;
         }
         LOGI("alloc decoded frame success.\n");
         // Allocate an AVFrame structure
         frameRGBA = av_frame_alloc();
         if(frameRGBA == NULL){
-            LOGE("AVFrameRGBA could not be allocated");
+            LOGE("AVFrameRGBA could not be allocated.\n");
             return false;
         }
         LOGI("alloc rgba frame success.\n");
@@ -304,7 +374,7 @@ public:
                 (AVPicture *)frameRGBA, (const uint8_t *)buffer, AV_PIX_FMT_RGBA,
                 width, height
         );
-        LOGI("fill picture with buffer");
+        LOGI("fill picture with buffer.\n");
         initialized = true;
         return true;
     }
@@ -413,6 +483,9 @@ public:
             AndroidBitmap_unlockPixels(env, bitmap);
             buffer = NULL;
         }
+        if (!env->IsSameObject(bitmap, NULL)) {
+            env->DeleteGlobalRef(bitmap);
+        }
         if (sws_ctx != NULL) {
             sws_freeContext(sws_ctx);
             sws_ctx = NULL;
@@ -435,7 +508,7 @@ public:
             formatCtx = NULL;
         }
 		if (options != NULL) {
-			av_dict_free(options);
+			av_dict_free(&options);
 			options = NULL;
 		}
         if (camera_source != NULL) {

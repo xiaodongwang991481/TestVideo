@@ -13,7 +13,7 @@ class CallbackForCamera: CallbackFromJNI {
         this.activity = activity
     }
 
-    override fun bitMapCallback(bitmap: Bitmap?) {
+    override fun bitmapCallback(bitmap: Bitmap?) {
         Log.i(LOG_TAG, "bitmapCallback")
         bitmap?.let {
             activity.drawBitmap(bitmap)
