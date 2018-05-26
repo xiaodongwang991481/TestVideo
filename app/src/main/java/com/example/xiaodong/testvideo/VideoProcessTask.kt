@@ -6,13 +6,26 @@ import kotlinx.android.synthetic.main.activity_video_play.*
 
 class VideoProcessTask : AsyncTask<Any, Any, Unit> {
 
-    private val activity: VideoPlayActivity
     private val lock = java.lang.Object()
     private val LOG_TAG = "VideoProcessTask"
     @Volatile private var finished = false
+    private val camera: Camera
+    private val cameraCallback: CallbackForCamera
+    private val width: Int
+    private val height: Int
+    private val decode: Boolean
+    private val sync: Boolean
 
-    constructor(activity: VideoPlayActivity) : super() {
-        this.activity = activity
+    constructor(
+            camera: Camera, cameraCallback: CallbackForCamera,
+            width: Int=0, height: Int=0, decode: Boolean=true,
+            sync: Boolean=false) : super() {
+        this.camera = camera
+        this.cameraCallback = cameraCallback
+        this.width = width
+        this.height = height
+        this.decode = decode
+        this.sync = sync
     }
 
     fun waitFinish() {
@@ -27,16 +40,11 @@ class VideoProcessTask : AsyncTask<Any, Any, Unit> {
 
     override fun doInBackground(vararg params: Any?): Unit {
         Log.i(LOG_TAG, "background task is started.")
-        var cameraSource = activity.cameraSource
-        var width = activity.camera_play.measuredWidth
-        var height = activity.camera_play.measuredHeight
-        cameraSource?.let {
-            activity.ffmpeg.decode(
-                    cameraSource, null, width, height,
-                    activity.cameraCallback,
-                    true, true
-            )
-        }
+        FFmpeg.getInstance().decode(
+                camera.source, null, width, height,
+                cameraCallback,
+                decode, sync
+        )
         Log.i(LOG_TAG, "background task is finished.")
         synchronized(lock) {
             Log.i(LOG_TAG, "notify all waits.")

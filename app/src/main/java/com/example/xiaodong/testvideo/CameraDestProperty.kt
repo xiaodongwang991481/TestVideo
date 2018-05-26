@@ -3,7 +3,7 @@ package com.example.xiaodong.testvideo
 import android.os.Parcel
 import android.os.Parcelable
 
-data class CameraDestProperty(val name: String, val value: String) : Parcelable {
+data class CameraDestProperty(val name: String, var value: String) : Parcelable {
     constructor(parcel: Parcel) : this(
             parcel.readString(),
             parcel.readString())

@@ -6,8 +6,13 @@
     android:layout_height="match_parent"
     android:id="@+id/edit_camera_activity"
     tools:context=".CameraEditActivity">
-
-    <LinearLayout
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+            <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical">
@@ -20,8 +25,7 @@
         android:ems="10"
         android:text="" />
     </LinearLayout>
-
-    <LinearLayout
+            <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical">
@@ -34,8 +38,7 @@
         android:ems="10"
         android:text="" />
     </LinearLayout>
-
-    <LinearLayout
+            <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical">
@@ -54,7 +57,7 @@
         android:ems="10"
         android:text="" />
     </LinearLayout>
-    <ExpandableListView
+            <ExpandableListView
         android:id="@+id/edit_camera_dests"
         style="@android:style/Widget.ExpandableListView"
         android:layout_width="match_parent"
@@ -68,11 +71,12 @@
         android:visibility="visible"
         android:groupIndicator="@drawable/expandible_group_indicator"
         android:childIndicator="@drawable/expandible_child_indicator"/>
-
-    <Button
+            <Button
         android:id="@+id/edit_camera_save"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/save_camera" />
+        </LinearLayout>
+    </ScrollView>
 
 </LinearLayout>

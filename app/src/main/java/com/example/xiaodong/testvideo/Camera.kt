@@ -3,8 +3,8 @@ package com.example.xiaodong.testvideo
 import android.os.Parcel
 import android.os.Parcelable
 
-data class Camera(val name: String, val source: String,
-                  val dests: ArrayList<CameraDest> = ArrayList()
+data class Camera(val name: String, var source: String,
+                  var dests: ArrayList<CameraDest> = ArrayList()
 ) : Parcelable {
     constructor(parcel: Parcel) : this(
             parcel.readString(),

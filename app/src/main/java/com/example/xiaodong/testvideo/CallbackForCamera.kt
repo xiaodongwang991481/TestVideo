@@ -3,21 +3,13 @@ package com.example.xiaodong.testvideo
 import android.graphics.Bitmap
 import android.util.Log
 
-class CallbackForCamera: CallbackFromJNI {
+open class CallbackForCamera(): CallbackFromJNI {
 
     private val LOG_TAG = "CallbackForCamera"
     @Volatile private var finished = false
 
-    private val activity: VideoPlayActivity
-    constructor(activity: VideoPlayActivity) : super() {
-        this.activity = activity
-    }
-
     override fun bitmapCallback(bitmap: Bitmap?) {
         Log.i(LOG_TAG, "bitmapCallback on $bitmap")
-        bitmap?.let {
-            activity.drawBitmap(bitmap)
-        }
     }
 
     override fun finishCallback(): Boolean {

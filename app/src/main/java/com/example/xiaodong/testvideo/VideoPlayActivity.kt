@@ -26,6 +26,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Paint
 import android.os.Environment
+import kotlinx.android.synthetic.main.cameras_layout.*
 
 
 /**
@@ -76,11 +77,18 @@ class VideoPlayActivity : AppCompatActivity() {
     }
 
     private val LOG_TAG = "VideoPlayActivity"
-    public val ffmpeg = FFmpeg()
-    public var cameraSource: String? = null
-    public var cameraDests: Array<String>? = null
     private var backgroundTask: VideoProcessTask? = null
-    public var cameraCallback = CallbackForCamera(this)
+    inner class CallbackPlayVideo : CallbackForCamera() {
+        override fun bitmapCallback(bitmap: Bitmap?) {
+            super.bitmapCallback(bitmap)
+            bitmap?.let {
+                this@VideoPlayActivity.drawBitmap(bitmap)
+            }
+        }
+    }
+
+    public var cameraCallback: CallbackForCamera = CallbackPlayVideo()
+    public var camera: Camera? = null
 
     fun getUriRealPath(contentUri: Uri): String? {
         val proj = arrayOf(MediaStore.Images.Media.DATA)
@@ -100,7 +108,7 @@ class VideoPlayActivity : AppCompatActivity() {
                     val selectedImagePath = getUriRealPath(selectedImageUri)
                     Log.i(LOG_TAG, "selected image $selectedImagePath")
                     selectedImagePath?.let {
-                        cameraSource = selectedImagePath
+                        camera!!.source = selectedImagePath
                         stopBackgroundTask()
                         startBackgroundTask()
                     } ?: let {
@@ -130,12 +138,9 @@ class VideoPlayActivity : AppCompatActivity() {
         setContentView(R.layout.activity_video_play)
         Log.i(LOG_TAG, "VideoPlayActivity created")
         if (intent.hasExtra("camera")) {
-            var camera = intent.getParcelableExtra("camera") as Camera
+            camera = intent.getParcelableExtra("camera") as Camera
             Log.i(LOG_TAG, "get camera $camera")
-            cameraSource = camera.source
-            var dests = ArrayList<String>()
-            cameraDests = dests.toTypedArray()
-        }
+         }
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
         mVisible = true
@@ -153,21 +158,24 @@ class VideoPlayActivity : AppCompatActivity() {
         outState?.let {
             super.onSaveInstanceState(outState)
         }
-        Log.i(LOG_TAG, "save state camera source: $cameraSource")
-        cameraSource?.let {
-            outState?.putString("camera_source", cameraSource)
-        }
-        Log.i(LOG_TAG, "save state camera dests: $cameraDests")
-        cameraDests?.let {
-            outState?.putStringArray("camera_dests", cameraDests)
+        Log.i(LOG_TAG, "save state camera: $camera")
+        outState?.let {
+            camera?.let {
+                outState.putParcelable("camera", camera)
+            }
         }
     }
 
     fun startBackgroundTask() {
         Log.i(LOG_TAG, "start background task")
         cameraCallback.clearFinished()
-        backgroundTask = backgroundTask ?: VideoProcessTask(this).apply {
-            execute()
+        camera?.let {
+            backgroundTask = backgroundTask ?: VideoProcessTask(
+                    it, cameraCallback, camera_play.measuredWidth,
+                    camera_play.measuredHeight, true, true
+            ).apply {
+                execute()
+            }
         }
     }
 
@@ -206,10 +214,7 @@ class VideoPlayActivity : AppCompatActivity() {
         savedInstanceState?.let {
             super.onRestoreInstanceState(savedInstanceState)
         }
-        cameraSource = savedInstanceState?.getString("camera_source")
-        Log.i(LOG_TAG, "restore state camera source: $cameraSource")
-        cameraDests =  savedInstanceState?.getStringArray("camera_dests")
-        Log.i(LOG_TAG, "restore state camera dests: $cameraDests")
+        camera = savedInstanceState?.getParcelable("camera")
     }
 
     override fun onPostCreate(savedInstanceState: Bundle?) {

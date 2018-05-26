@@ -14,6 +14,12 @@ class FFmpeg {
         @JvmStatic
         external fun initJNI(): Unit
 
+        private val singleton = FFmpeg()
+
+        @Synchronized fun getInstance(): FFmpeg {
+            return singleton
+        }
+
         // Used to load the 'native-lib' library on application startup.
         init {
             // System.loadLibrary("avutil")
