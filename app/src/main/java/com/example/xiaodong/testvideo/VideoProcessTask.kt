@@ -7,25 +7,27 @@ import kotlinx.android.synthetic.main.activity_video_play.*
 class VideoProcessTask : AsyncTask<Any, Any, Unit> {
 
     private val lock = java.lang.Object()
-    private val LOG_TAG = "VideoProcessTask"
     @Volatile private var finished = false
     private val camera: Camera
-    private val cameraCallback: CallbackForCamera
+    private val cameraCallback: CallbackForCamera?
     private val width: Int
     private val height: Int
     private val decode: Boolean
     private val sync: Boolean
+    private val copyToDests: Boolean
 
     constructor(
-            camera: Camera, cameraCallback: CallbackForCamera,
+            camera: Camera, cameraCallback: CallbackForCamera?,
             width: Int=0, height: Int=0, decode: Boolean=true,
-            sync: Boolean=false) : super() {
+            sync: Boolean=false,
+            copyToDests: Boolean=false) : super() {
         this.camera = camera
         this.cameraCallback = cameraCallback
         this.width = width
         this.height = height
         this.decode = decode
         this.sync = sync
+        this.copyToDests = copyToDests
     }
 
     fun waitFinish() {
@@ -40,8 +42,16 @@ class VideoProcessTask : AsyncTask<Any, Any, Unit> {
 
     override fun doInBackground(vararg params: Any?): Unit {
         Log.i(LOG_TAG, "background task is started.")
+        var dests: Array<String>? = null
+        if (copyToDests) {
+            var destList = ArrayList<String>()
+            for (dest in camera.dests) {
+                destList.add(dest.url)
+            }
+            dests = destList.toTypedArray()
+        }
         FFmpeg.getInstance().decode(
-                camera.source, null, width, height,
+                camera.source, dests, width, height,
                 cameraCallback,
                 decode, sync
         )
@@ -60,5 +70,9 @@ class VideoProcessTask : AsyncTask<Any, Any, Unit> {
 
     override fun onCancelled() {
         super.onCancelled()
+    }
+
+    companion object {
+        private val LOG_TAG = "VideoProcessTask"
     }
 }

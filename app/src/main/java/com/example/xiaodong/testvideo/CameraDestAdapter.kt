@@ -15,13 +15,13 @@ class CameraDestAdapter(
 
     inner class DeleteCameraDest(val cameraDest: CameraDest) : View.OnClickListener {
         override fun onClick(v: View?) {
-            context.onButtonClickDelete(cameraDest)
+            context.onButtonClickDeleteDest(cameraDest)
         }
     }
 
     inner class EditCameraDest(val cameraDest: CameraDest) : View.OnLongClickListener {
         override fun onLongClick(v: View?): Boolean {
-            context.onButtonClickEdit(cameraDest)
+            context.onButtonClickEditDest(cameraDest)
             return true
         }
     }
@@ -30,7 +30,7 @@ class CameraDestAdapter(
             val cameraDest: CameraDest, val cameraDestProperty: CameraDestProperty
     ) : View.OnClickListener {
         override fun onClick(v: View?) {
-            context.onButtonClickDeleteProperty(cameraDest, cameraDestProperty)
+            context.onButtonClickDeleteDestProperty(cameraDest, cameraDestProperty)
         }
     }
 

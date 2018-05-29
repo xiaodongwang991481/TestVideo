@@ -76,9 +76,9 @@ class VideoPlayActivity : AppCompatActivity() {
         }
     }
 
-    private val LOG_TAG = "VideoPlayActivity"
     private var backgroundTask: VideoProcessTask? = null
-    inner class CallbackPlayVideo : CallbackForCamera() {
+
+    inner class CallbackPlayVideo(camera: Camera) : CallbackForCamera(camera) {
         override fun bitmapCallback(bitmap: Bitmap?) {
             super.bitmapCallback(bitmap)
             bitmap?.let {
@@ -87,7 +87,7 @@ class VideoPlayActivity : AppCompatActivity() {
         }
     }
 
-    public var cameraCallback: CallbackForCamera = CallbackPlayVideo()
+    public var cameraCallback: CallbackForCamera? = null
     public var camera: Camera? = null
 
     fun getUriRealPath(contentUri: Uri): String? {
@@ -138,7 +138,10 @@ class VideoPlayActivity : AppCompatActivity() {
         setContentView(R.layout.activity_video_play)
         Log.i(LOG_TAG, "VideoPlayActivity created")
         if (intent.hasExtra("camera")) {
-            camera = intent.getParcelableExtra("camera") as Camera
+            camera = intent.getParcelableExtra("camera")
+            camera?.let {
+                cameraCallback = CallbackForCamera(it)
+            }
             Log.i(LOG_TAG, "get camera $camera")
          }
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
@@ -168,7 +171,9 @@ class VideoPlayActivity : AppCompatActivity() {
 
     fun startBackgroundTask() {
         Log.i(LOG_TAG, "start background task")
-        cameraCallback.clearFinished()
+        cameraCallback?.let {
+            it.clearFinished()
+        }
         camera?.let {
             backgroundTask = backgroundTask ?: VideoProcessTask(
                     it, cameraCallback, camera_play.measuredWidth,
@@ -181,7 +186,9 @@ class VideoPlayActivity : AppCompatActivity() {
 
     fun stopBackgroundTask() {
         Log.i(LOG_TAG, "stop background task")
-        cameraCallback.setFinished()
+        cameraCallback?.let {
+            it.setFinished()
+        }
         backgroundTask?.apply {
             waitFinish()
         }
@@ -215,6 +222,9 @@ class VideoPlayActivity : AppCompatActivity() {
             super.onRestoreInstanceState(savedInstanceState)
         }
         camera = savedInstanceState?.getParcelable("camera")
+        camera?.let {
+            cameraCallback = CallbackForCamera(it)
+        }
     }
 
     override fun onPostCreate(savedInstanceState: Bundle?) {
@@ -295,6 +305,7 @@ class VideoPlayActivity : AppCompatActivity() {
          */
         private val UI_ANIMATION_DELAY = 300
 
-        private val REQUEST_TAKE_GALLERY_VIDEO = 1;
+        private val REQUEST_TAKE_GALLERY_VIDEO = 1
+        private val LOG_TAG = "VideoPlayActivity"
     }
 }

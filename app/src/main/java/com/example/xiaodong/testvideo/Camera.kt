@@ -4,11 +4,13 @@ import android.os.Parcel
 import android.os.Parcelable
 
 data class Camera(val name: String, var source: String,
+                  var source_properties: ArrayList<CameraSourceProperty> = ArrayList(),
                   var dests: ArrayList<CameraDest> = ArrayList()
 ) : Parcelable {
     constructor(parcel: Parcel) : this(
             parcel.readString(),
             parcel.readString(),
+            ArrayList<CameraSourceProperty>(),
             ArrayList<CameraDest>()) {
         parcel.readTypedList(dests, CameraDest.CREATOR)
     }
@@ -16,6 +18,7 @@ data class Camera(val name: String, var source: String,
     override fun writeToParcel(parcel: Parcel, flags: Int) {
         parcel.writeString(name)
         parcel.writeString(source)
+        parcel.writeTypedList(source_properties)
         parcel.writeTypedList(dests)
     }
 
@@ -24,7 +27,8 @@ data class Camera(val name: String, var source: String,
     }
 
     override fun toString(): String {
-        return dests.joinToString(prefix="name=$name, source=$source, [", postfix = "]")
+        var prefix = source_properties.joinToString(prefix="name=$source[", postfix = "]")
+        return dests.joinToString(prefix="$prefix[", postfix = "]")
     }
 
     override fun equals(other: Any?): Boolean {

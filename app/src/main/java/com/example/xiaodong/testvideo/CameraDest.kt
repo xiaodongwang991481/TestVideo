@@ -5,9 +5,11 @@ import android.os.Parcelable
 
 data class CameraDest(
         val name: String,
+        val url: String,
         var dest_properties: ArrayList<CameraDestProperty> = ArrayList()
 ) : Parcelable {
     constructor(parcel: Parcel) : this(
+            parcel.readString(),
             parcel.readString(),
             ArrayList<CameraDestProperty>()) {
         parcel.readTypedList(dest_properties, CameraDestProperty.CREATOR)
@@ -15,11 +17,12 @@ data class CameraDest(
 
     override fun writeToParcel(parcel: Parcel, flags: Int) {
         parcel.writeString(name)
+        parcel.writeString(url)
         parcel.writeTypedList(dest_properties)
     }
 
     override fun toString(): String {
-        return dest_properties.joinToString(prefix="$name[", postfix="]")
+        return dest_properties.joinToString(prefix="$name=$url[", postfix="]")
     }
 
     override fun describeContents(): Int {

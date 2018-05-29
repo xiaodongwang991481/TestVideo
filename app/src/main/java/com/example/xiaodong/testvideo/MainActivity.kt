@@ -67,6 +67,19 @@ class MainActivity : AppCompatActivity() {
         var footer = layoutInflater.inflate(R.layout.listview_footer, cameras, false)
         cameras.addFooterView(footer)
         cameras.setAdapter(camerasAdapter!!)
+        var totalHeight = cameras.paddingTop + cameras.paddingBottom
+        for (i in 0..camerasAdapter!!.count-1) {
+            var item = camerasAdapter!!.getView(i, null, cameras)
+            item.measure(0, 0)
+            totalHeight += item.measuredHeight
+        }
+        var params = cameras.layoutParams
+        var dividerCount = 0
+        if (camerasAdapter!!.count > 0) {
+            dividerCount = camerasAdapter!!.count - 1
+        }
+        params.height = totalHeight + cameras.dividerHeight * dividerCount
+        cameras.layoutParams = params
         add_camera.setOnClickListener(AddCamera())
         cameras.setOnItemClickListener(ShowCamera())
         cameras.setOnItemLongClickListener(EditCamera())

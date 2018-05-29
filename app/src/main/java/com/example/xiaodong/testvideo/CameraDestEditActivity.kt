@@ -23,7 +23,7 @@ class CameraDestEditActivity : AppCompatActivity() {
 
     inner class AddCameraDestProperty: View.OnClickListener {
         override fun onClick(v: View?) {
-            this@CameraDestEditActivity.onButtonClickAdd()
+            this@CameraDestEditActivity.onButtonClickAddProperty()
         }
     }
 
@@ -55,10 +55,12 @@ class CameraDestEditActivity : AppCompatActivity() {
             var cameraDest: CameraDest = intent.getParcelableExtra("cameraDest")
             Log.i(LOG_TAG, "get camera dest $cameraDest")
             var cameraDestName = cameraDest.name
+            var cameraDestUrl = cameraDest.url
             edit_camera_dest_name.setText(cameraDestName)
             edit_camera_dest_name.focusable = View.NOT_FOCUSABLE
             edit_camera_dest_name.setEnabled(false)
             edit_camera_dest_name.setTextColor(Color.GRAY)
+            edit_camera_dest_url.setText(cameraDestUrl)
             cameraDestProperties = cameraDest.dest_properties
         } else {
             cameraDestProperties = ArrayList()
@@ -78,9 +80,11 @@ class CameraDestEditActivity : AppCompatActivity() {
             super.onSaveInstanceState(outState)
         }
         var cameraDestName = edit_camera_dest_name.text.toString()
-        Log.i(LOG_TAG, "save state camera dest name = $cameraDestName")
+        var cameraDestUrl = edit_camera_dest_url.text.toString()
+        Log.i(LOG_TAG, "save state camera dest $cameraDestName=$cameraDestUrl")
         outState?.let {
             outState.putString("camera_dest_name", cameraDestName)
+            outState.putString("camera_dest_url", cameraDestUrl)
             cameraDestProperties?.let {
                 outState.putParcelableArrayList("camera_dest_properties", cameraDestProperties)
             }
@@ -94,8 +98,12 @@ class CameraDestEditActivity : AppCompatActivity() {
         var cameraDestName = savedInstanceState?.getString(
                 "camera_dest_name"
         ) ?: ""
-        Log.i(LOG_TAG, "restore state camera dest name = $cameraDestName")
+        var cameraDestUrl = savedInstanceState?.getString(
+                "camera_dest_url"
+        ) ?: ""
+        Log.i(LOG_TAG, "restore state camera dest $cameraDestName=$cameraDestUrl")
         edit_camera_dest_name.setText(cameraDestName)
+        edit_camera_dest_url.setText(cameraDestUrl)
         cameraDestProperties = savedInstanceState?.getParcelableArrayList(
                 "camera_dest_properties"
         ) ?: ArrayList()
@@ -108,9 +116,15 @@ class CameraDestEditActivity : AppCompatActivity() {
             Log.e(LOG_TAG, "camera dest name is empty")
             return
         }
+        if (edit_camera_dest_url == null || edit_camera_dest_url.text.isNullOrBlank()) {
+            Log.e(LOG_TAG, "camera dest url is empty")
+            return
+        }
         var cameraDestName = edit_camera_dest_name.text.toString()
+        var cameraDestUrl = edit_camera_dest_url.text.toString()
         val cameraDest = CameraDest(
                 name=cameraDestName,
+                url=cameraDestUrl,
                 dest_properties=cameraDestProperties!!
         )
         Log.i(LOG_TAG, "set camera dest to $cameraDest")
@@ -120,7 +134,7 @@ class CameraDestEditActivity : AppCompatActivity() {
         finish()
     }
 
-    fun onButtonClickAdd() {
+    fun onButtonClickAddProperty() {
         Log.i(LOG_TAG, "add camera dest property")
         if (
                 add_camera_dest_property_name == null ||

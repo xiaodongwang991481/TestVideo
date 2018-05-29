@@ -10,8 +10,6 @@ class DBOpenHelper(
         context: Context?, name: String, factory: SQLiteDatabase.CursorFactory?, version: Int
 ) : SQLiteOpenHelper(context, name, factory, version) {
 
-    private val LOG_TAG = "DBOpenHelper"
-
     override fun onCreate(db: SQLiteDatabase?) {
         db?.let {
             db.execSQL(
@@ -19,9 +17,16 @@ class DBOpenHelper(
             )
             db.execSQL(
                     "CREATE TABLE if not exists camera_dest(" +
-                            "name text not null, camera_name text not null, " +
-                            "primary key (name, camera_name) " +
+                            "name text not null, url text not null, camera_name text not null, " +
+                            "primary key (name, camera_name), " +
                             " foreign key (camera_name) references camera (name) on delete cascade on update cascade)"
+            )
+            db.execSQL(
+                    "CREATE TABLE if not exists camera_source_property(" +
+                            "name text not null, value text not null, camera_name text not null, " +
+                            "primary key(name, camera_name), foreign key (camera_name) " +
+                            "references camera (name) on delete cascade on update cascade)"
+
             )
             db.execSQL(
                     "CREATE table if not exists camera_dest_property(" +
@@ -34,7 +39,13 @@ class DBOpenHelper(
     }
 
     override fun onUpgrade(db: SQLiteDatabase?, oldVersion: Int, newVersion: Int) {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        db?.let {
+            db.execSQL("drop table if exists camera_dest_property")
+            db.execSQL("drop table if exists camera_dest")
+            db.execSQL("drop table if exists camera_source_property")
+            db.execSQL("drop table if exists camera")
+        }
+        onCreate(db)
     }
 
     fun getAllCameras(): ArrayList<Camera> {
@@ -50,6 +61,30 @@ class DBOpenHelper(
                 while (cursor.moveToNext()) {
                     var name = cursor.getString(cursor.getColumnIndex("name"))
                     var source = cursor.getString(cursor.getColumnIndex("source"))
+                    var sourcePropertyCursor = db.query(
+                            "camera_source_property", null, "camera_name=?",
+                            arrayOf(name), null, null, null
+                    )
+                    var sourceProperties = ArrayList<CameraSourceProperty>()
+                    try {
+                        while (sourcePropertyCursor.moveToNext()) {
+                            var sourcePropertyName = sourcePropertyCursor.getString(
+                                    sourcePropertyCursor.getColumnIndex("name")
+                            )
+                            var sourcePropertyValue = sourcePropertyCursor.getString(
+                                    sourcePropertyCursor.getColumnIndex("value")
+                            )
+                            sourceProperties.add(CameraSourceProperty(
+                                    name=sourcePropertyName,
+                                    value=sourcePropertyValue
+                            ))
+                        }
+                    } catch (e: Exception) {
+                        Log.e(LOG_TAG, e.message)
+                        throw e
+                    } finally {
+                        sourcePropertyCursor.close()
+                    }
                     var destCursor = db.query(
                             "camera_dest", null, "camera_name=?",
                             arrayOf(name), null, null, null
@@ -58,6 +93,7 @@ class DBOpenHelper(
                     try {
                         while (destCursor.moveToNext()) {
                             var destName = destCursor.getString(destCursor.getColumnIndex("name"))
+                            var destUrl =  destCursor.getString(destCursor.getColumnIndex("url"))
                             var destPropertyCursor = db.query(
                                     "camera_dest_property", null, "dest_name=?",
                                     arrayOf(destName), null, null, null
@@ -79,7 +115,11 @@ class DBOpenHelper(
                             } finally {
                                 destPropertyCursor.close()
                             }
-                            dests.add(CameraDest(name = destName, dest_properties = destProperties))
+                            dests.add(CameraDest(
+                                    name=destName,
+                                    url=destUrl,
+                                    dest_properties=destProperties
+                            ))
                         }
                     } catch (e: Exception) {
                         Log.e(LOG_TAG, e.message)
@@ -87,7 +127,10 @@ class DBOpenHelper(
                     } finally {
                         destCursor.close()
                     }
-                    cameras.add(Camera(name = name, source = source, dests = dests))
+                    cameras.add(Camera(
+                            name = name, source = source,
+                            source_properties = sourceProperties,
+                            dests = dests))
                 }
             } catch (e: Exception) {
                 Log.e(LOG_TAG, e.message)
@@ -113,12 +156,20 @@ class DBOpenHelper(
         try {
             db.delete("camera_dest_property", null, null)
             db.delete("camera_dest", null, null)
+            db.delete("camera_source_property", null, null)
             db.delete("camera", null, null)
             for (camera in cameras) {
                 var cameraContent = ContentValues()
                 cameraContent.put("name", camera.name)
                 cameraContent.put("source", camera.source)
                 db.insert("camera", null, cameraContent)
+                for (cameraSourceProeprty in camera.source_properties) {
+                    var cameraSourcePropertyContent = ContentValues()
+                    cameraSourcePropertyContent.put("name", cameraSourceProeprty.name)
+                    cameraSourcePropertyContent.put("value", cameraSourceProeprty.value)
+                    cameraSourcePropertyContent.put("camera_name", camera.name)
+                    db.insert("camera_source_property", null, cameraSourcePropertyContent)
+                }
                 for (cameraDest in camera.dests) {
                     var cameraDestContent = ContentValues()
                     cameraDestContent.put("name", cameraDest.name)
@@ -141,5 +192,9 @@ class DBOpenHelper(
             db.endTransaction()
             db.close()
         }
+    }
+
+    companion object {
+        private val LOG_TAG = "DBOpenHelper"
     }
 }

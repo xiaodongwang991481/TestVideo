@@ -10,15 +10,17 @@ import android.os.PersistableBundle
 import android.util.Log
 import android.view.View
 import android.widget.AdapterView
+import kotlinx.android.synthetic.main.activity_camera_dest_edit.*
 import kotlinx.android.synthetic.main.activity_camera_edit.*
 
 class CameraEditActivity : AppCompatActivity() {
 
-    private val LOG_TAG = "CameraEditActivity"
     private var cameraDests: ArrayList<CameraDest>? = null
+    private var cameraSourceProperties: ArrayList<CameraSourceProperty>? = null
     var groupIndicatorWidth: Int = 50
     var childIndicatorWidth: Int = 50
     private var cameraDestAdapter: CameraDestAdapter? = null
+    private var cameraSourcePropertyAdapter: CameraSourcePropertyAdapter? = null
 
     inner class SaveCamera : View.OnClickListener {
         override fun onClick(v: View?) {
@@ -32,11 +34,55 @@ class CameraEditActivity : AppCompatActivity() {
         }
     }
 
+    inner class AddCameraSourceProperty: View.OnClickListener {
+        override fun onClick(v: View?) {
+            this@CameraEditActivity.onButtonClickAddSourceProperty()
+        }
+    }
+
+    fun onButtonClickAddSourceProperty() {
+        Log.i(LOG_TAG, "add camera source property")
+        if (
+                add_camera_source_property_name == null ||
+                add_camera_source_property_name.text.isNullOrBlank()
+        ) {
+            Log.e(LOG_TAG, "camera source property name is empty")
+            return
+        }
+        if (
+                add_camera_source_property_value == null ||
+                add_camera_source_property_value.text.isNullOrBlank()
+        ) {
+            Log.e(LOG_TAG, "camera source property value is empty")
+            return
+        }
+        addCameraSourceProperty(
+                CameraSourceProperty(
+                        add_camera_source_property_name.text.toString(),
+                        add_camera_source_property_value.text.toString()
+                )
+        )
+    }
+
+    fun addCameraSourceProperty(cameraSourceProperty: CameraSourceProperty) {
+        Log.i(LOG_TAG,"add camera source property $cameraSourceProperty")
+        if (cameraSourceProperty in cameraSourceProperties!!) {
+            Log.i(
+                    LOG_TAG,
+                    "camera source property $cameraSourceProperty " +
+                            "in camera source properties $cameraSourceProperties"
+            )
+        } else {
+            cameraSourceProperties!!.add(cameraSourceProperty)
+        }
+        cameraSourcePropertyAdapter!!.notifyDataSetChanged()
+    }
+
     inner class EditCameraDest : AdapterView.OnItemLongClickListener {
         override fun onItemLongClick(parent: AdapterView<*>?, view: View?, position: Int, id: Long): Boolean {
             var cameraDest = edit_camera_dests.getItemAtPosition(position) as CameraDest
             Log.i(LOG_TAG, "item $position long click on $cameraDest")
-            this@CameraEditActivity.onButtonClickEdit(cameraDest)
+            this@CameraEditActivity.onButtonClickEditDest(cameraDest)
             return true
         }
     }
@@ -75,15 +121,32 @@ class CameraEditActivity : AppCompatActivity() {
             edit_camera_name.setEnabled(false)
             edit_camera_name.setTextColor(Color.GRAY)
             edit_camera_source.setText(cameraSource)
+            cameraSourceProperties = camera.source_properties
             cameraDests = camera.dests
         } else {
+            cameraSourceProperties = ArrayList()
             cameraDests = ArrayList()
         }
+        cameraSourcePropertyAdapter = CameraSourcePropertyAdapter(this, cameraSourceProperties!!)
+        var header = layoutInflater.inflate(
+                R.layout.camera_source_property_header, camera_source_properties, false
+        ) as View
+        camera_source_properties.addHeaderView(header)
+        var footer = layoutInflater.inflate(
+                R.layout.listview_footer, camera_source_properties, false
+        ) as View
+        camera_source_properties.addFooterView(footer)
+        camera_source_properties.setAdapter(cameraSourcePropertyAdapter!!)
+        add_camera_source_property.setOnClickListener(AddCameraSourceProperty())
         cameraDestAdapter = CameraDestAdapter(this, cameraDests!!)
-        var header = layoutInflater.inflate(R.layout.camera_dest_header, edit_camera_dests, false) as View
-        edit_camera_dests.addHeaderView(header)
-        var footer = layoutInflater.inflate(R.layout.listview_footer, edit_camera_dests, false) as View
-        edit_camera_dests.addFooterView(footer)
+        var dest_header = layoutInflater.inflate(
+                R.layout.camera_dest_header, edit_camera_dests, false
+        ) as View
+        edit_camera_dests.addHeaderView(dest_header)
+        var dest_footer = layoutInflater.inflate(
+                R.layout.listview_footer, edit_camera_dests, false
+        ) as View
+        edit_camera_dests.addFooterView(dest_footer)
         edit_camera_dests.setAdapter(cameraDestAdapter!!)
         edit_camera_dests.setOnItemLongClickListener(EditCameraDest())
         val groupIndicator = resources.getDrawable(R.drawable.expandible_group_indicator, this.theme)
@@ -111,8 +174,11 @@ class CameraEditActivity : AppCompatActivity() {
         outState?.let {
             outState.putString("name", cameraName)
             outState.putString("source", cameraSource)
+            cameraSourceProperties?.let {
+                outState.putParcelableArrayList("camera_source_properties", it)
+            }
             cameraDests?.let {
-                outState.putParcelableArrayList("camera_dests", cameraDests)
+                outState.putParcelableArrayList("camera_dests", it)
             }
         }
     }
@@ -126,10 +192,15 @@ class CameraEditActivity : AppCompatActivity() {
         Log.i(LOG_TAG, "restore state camera name = $cameraName, camera source = $cameraSource")
         edit_camera_name.setText(cameraName)
         edit_camera_source.setText(cameraSource)
+        cameraSourceProperties = savedInstanceState?.getParcelableArrayList(
+                "camera_source_properties"
+        ) ?: ArrayList()
         cameraDests = savedInstanceState?.getParcelableArrayList(
                 "camera_dests"
         ) ?: ArrayList()
+        cameraSourcePropertyAdapter = CameraSourcePropertyAdapter(this, cameraSourceProperties!!)
         cameraDestAdapter = CameraDestAdapter(this, cameraDests!!)
+        camera_source_properties.setAdapter(cameraSourcePropertyAdapter!!)
         edit_camera_dests.setAdapter(cameraDestAdapter!!)
     }
 
@@ -148,6 +219,7 @@ class CameraEditActivity : AppCompatActivity() {
         val camera = Camera(
                 name=cameraName,
                 source=cameraSource,
+                source_properties=cameraSourceProperties!!,
                 dests=cameraDests!!
             )
         Log.i(LOG_TAG, "set camera to $camera")
@@ -160,13 +232,19 @@ class CameraEditActivity : AppCompatActivity() {
     fun onButtonClickAddDest() {
         Log.i(LOG_TAG, "add camera dest")
         if (camera_dest_name == null || camera_dest_name.text.isNullOrBlank()) {
-            Log.e(LOG_TAG, "camera dest is empty")
+            Log.e(LOG_TAG, "camera dest name is empty")
             return
         }
-        addCameraDest(CameraDest(camera_dest_name.text.toString()))
+        if (camera_dest_url == null || camera_dest_url.text.isNullOrBlank()) {
+            Log.e(LOG_TAG, "camera dest url is empty")
+        }
+        addCameraDest(CameraDest(
+                name=camera_dest_name.text.toString(),
+                url=camera_dest_url.text.toString()
+        ))
     }
 
-    fun onButtonClickEdit(cameraDest: CameraDest) {
+    fun onButtonClickEditDest(cameraDest: CameraDest) {
         Log.i(LOG_TAG, "edit camera dest $cameraDest")
         val intent = Intent(this, CameraDestEditActivity::class.java)
         intent.putExtra("cameraDest", cameraDest)
@@ -221,19 +299,28 @@ class CameraEditActivity : AppCompatActivity() {
         cameraDestAdapter!!.notifyDataSetChanged()
     }
 
-    fun onButtonClickDelete(cameraDest: CameraDest) {
+    fun onButtonClickDeleteDest(cameraDest: CameraDest) {
         Log.i(LOG_TAG, "delete camera dest $cameraDest")
         cameraDests!!.remove(cameraDest)
         cameraDestAdapter!!.notifyDataSetChanged()
     }
 
-    fun onButtonClickDeleteProperty(cameraDest: CameraDest, cameraDestProperty: CameraDestProperty) {
+    fun onButtonClickDeleteDestProperty(cameraDest: CameraDest, cameraDestProperty: CameraDestProperty) {
         Log.i(
                 LOG_TAG,
                 "delete camera dest ${cameraDest.name} property $cameraDestProperty"
         )
         cameraDest.dest_properties.remove(cameraDestProperty)
         cameraDestAdapter!!.notifyDataSetChanged()
+    }
+
+    fun onButtonClickDeleteSourceProperty(cameraSourceProperty: CameraSourceProperty) {
+        Log.i(
+                LOG_TAG,
+                "delete camera source property $cameraSourceProperty"
+        )
+        cameraSourceProperties!!.remove(cameraSourceProperty)
+        cameraSourcePropertyAdapter!!.notifyDataSetChanged()
     }
 
     companion object {
@@ -246,5 +333,6 @@ class CameraEditActivity : AppCompatActivity() {
             var scale = context.getResources().getDisplayMetrics().density
             return (dipValue*scale+0.5f).toInt()
         }
+        private val LOG_TAG = "CameraEditActivity"
     }
 }

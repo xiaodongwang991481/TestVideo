@@ -11,7 +11,6 @@ import android.widget.TextView
 class CameraDestPropertyAdapter(
         val context: CameraDestEditActivity, val cameraDestProperties: ArrayList<CameraDestProperty>
 ) : BaseAdapter() {
-    private val LOG_TAG = "CameraDestPropertyAdapter"
 
     inner class DeleteCameraDestProperty(val cameraDestProperty: CameraDestProperty) : View.OnClickListener {
         override fun onClick(v: View?) {
@@ -43,5 +42,9 @@ class CameraDestPropertyAdapter(
         val deleteItem: Button = view.findViewById(R.id.delete_camera_dest_property) as Button
         deleteItem.setOnClickListener(DeleteCameraDestProperty(currentItem))
         return view
+    }
+
+    companion object {
+        private val LOG_TAG = "CameraDestPropertyAdapter"
     }
 }
