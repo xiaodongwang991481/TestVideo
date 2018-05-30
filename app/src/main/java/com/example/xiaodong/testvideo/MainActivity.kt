@@ -45,7 +45,23 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private val LOG_TAG = "mainActivity"
+    inner class StartService : View.OnClickListener {
+        override fun onClick(v: View?) {
+            var intent = Intent("com.example.xiaodong.testvideo.CameraService")
+            Log.i(LOG_TAG, "start service")
+            startService(intent)
+
+        }
+    }
+
+    inner class StopService : View.OnClickListener {
+        override fun onClick(v: View?) {
+            var intent = Intent("com.example.xiaodong.testvideo.CameraService")
+            Log.i(LOG_TAG, "stop service")
+            stopService(intent)
+        }
+    }
+
     private var dbHelper: DBOpenHelper? = null
     private var cameraList: ArrayList<Camera>? = null
     private var camerasAdapter: CameraAdapter? = null
@@ -67,23 +83,13 @@ class MainActivity : AppCompatActivity() {
         var footer = layoutInflater.inflate(R.layout.listview_footer, cameras, false)
         cameras.addFooterView(footer)
         cameras.setAdapter(camerasAdapter!!)
-        var totalHeight = cameras.paddingTop + cameras.paddingBottom
-        for (i in 0..camerasAdapter!!.count-1) {
-            var item = camerasAdapter!!.getView(i, null, cameras)
-            item.measure(0, 0)
-            totalHeight += item.measuredHeight
-        }
-        var params = cameras.layoutParams
-        var dividerCount = 0
-        if (camerasAdapter!!.count > 0) {
-            dividerCount = camerasAdapter!!.count - 1
-        }
-        params.height = totalHeight + cameras.dividerHeight * dividerCount
-        cameras.layoutParams = params
+        cameras.smoothScrollToPosition(0, 0)
         add_camera.setOnClickListener(AddCamera())
         cameras.setOnItemClickListener(ShowCamera())
         cameras.setOnItemLongClickListener(EditCamera())
         save_cameras.setOnClickListener(SaveCameras())
+        start_service.setOnClickListener(StartService())
+        stop_service.setOnClickListener(StopService())
     }
 
     fun onButtonClickAdd() {
@@ -220,7 +226,11 @@ class MainActivity : AppCompatActivity() {
             }
             if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_DENIED) {
                 Log.d("permission", "permission denied to CAMERA - requesting it")
-                val permissions = arrayOf<String>(Manifest.permission.CAMERA)
+                val permissions = arrayOf<String>(Manifest.permission.READ_EXTERNAL_STORAGE)
+                requestPermissions(permissions, PERMISSION_REQUEST_CODE)
+            }
+            if (checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_DENIED) {
+                val permissions = arrayOf<String>(Manifest.permission.WRITE_EXTERNAL_STORAGE)
                 requestPermissions(permissions, PERMISSION_REQUEST_CODE)
             }
         }
@@ -228,6 +238,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private val PERMISSION_REQUEST_CODE = 1
+        private val LOG_TAG = "mainActivity"
     }
 
 }

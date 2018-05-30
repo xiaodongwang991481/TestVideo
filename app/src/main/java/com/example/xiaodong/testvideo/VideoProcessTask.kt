@@ -10,23 +10,13 @@ class VideoProcessTask : AsyncTask<Any, Any, Unit> {
     @Volatile private var finished = false
     private val camera: Camera
     private val cameraCallback: CallbackForCamera?
-    private val width: Int
-    private val height: Int
-    private val decode: Boolean
-    private val sync: Boolean
     private val copyToDests: Boolean
 
     constructor(
-            camera: Camera, cameraCallback: CallbackForCamera?,
-            width: Int=0, height: Int=0, decode: Boolean=true,
-            sync: Boolean=false,
+            camera: Camera, cameraCallback: CallbackForCamera?=null,
             copyToDests: Boolean=false) : super() {
         this.camera = camera
         this.cameraCallback = cameraCallback
-        this.width = width
-        this.height = height
-        this.decode = decode
-        this.sync = sync
         this.copyToDests = copyToDests
     }
 
@@ -51,9 +41,7 @@ class VideoProcessTask : AsyncTask<Any, Any, Unit> {
             dests = destList.toTypedArray()
         }
         FFmpeg.getInstance().decode(
-                camera.source, dests, width, height,
-                cameraCallback,
-                decode, sync
+                camera.source, dests, cameraCallback
         )
         Log.i(LOG_TAG, "background task is finished.")
         synchronized(lock) {

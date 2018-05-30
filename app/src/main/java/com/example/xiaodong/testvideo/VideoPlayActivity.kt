@@ -1,7 +1,6 @@
 package com.example.xiaodong.testvideo
 
 import android.app.Activity
-import android.graphics.Color
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Handler
@@ -23,8 +22,7 @@ import android.provider.DocumentsContract
 import android.os.Build
 import android.content.ContentResolver
 import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.Paint
+import android.graphics.*
 import android.os.Environment
 import kotlinx.android.synthetic.main.cameras_layout.*
 
@@ -72,7 +70,10 @@ class VideoPlayActivity : AppCompatActivity() {
             val intent = Intent()
             intent.type = "video/*"
             intent.action = Intent.ACTION_GET_CONTENT
-            startActivityForResult(Intent.createChooser(intent, "Choose a file"), REQUEST_TAKE_GALLERY_VIDEO)
+            startActivityForResult(
+                    Intent.createChooser(intent, "Choose a file"),
+                    REQUEST_TAKE_GALLERY_VIDEO
+            )
         }
     }
 
@@ -82,13 +83,13 @@ class VideoPlayActivity : AppCompatActivity() {
         override fun bitmapCallback(bitmap: Bitmap?) {
             super.bitmapCallback(bitmap)
             bitmap?.let {
-                this@VideoPlayActivity.drawBitmap(bitmap)
+                this@VideoPlayActivity.drawBitmap(camera, bitmap)
             }
         }
     }
 
-    public var cameraCallback: CallbackForCamera? = null
-    public var camera: Camera? = null
+    var cameraCallback: CallbackForCamera? = null
+    var camera: Camera? = null
 
     fun getUriRealPath(contentUri: Uri): String? {
         val proj = arrayOf(MediaStore.Images.Media.DATA)
@@ -98,24 +99,28 @@ class VideoPlayActivity : AppCompatActivity() {
         return cursor.getString(column_index)
     }
 
+    fun getCameraSource(data: Intent?) : String? {
+        val selectedImageUri = data?.getData()
+        Log.i(LOG_TAG, "selected image uri: $selectedImageUri")
+        selectedImageUri?.let {
+            val selectedImagePath = getUriRealPath(it)
+            Log.i(LOG_TAG, "selected image $selectedImagePath from $it")
+            return selectedImagePath
+        } ?: let {
+            Log.e(LOG_TAG, "failed to get Uri")
+        }
+        return null
+    }
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (resultCode == Activity.RESULT_OK) {
             if (requestCode == REQUEST_TAKE_GALLERY_VIDEO) {
-                val selectedImageUri = data?.getData()
-                Log.i(LOG_TAG, "selected image uri: $selectedImageUri")
-                selectedImageUri?.let {
-                    val selectedImagePath = getUriRealPath(selectedImageUri)
-                    Log.i(LOG_TAG, "selected image $selectedImagePath")
-                    selectedImagePath?.let {
-                        camera!!.source = selectedImagePath
-                        stopBackgroundTask()
-                        startBackgroundTask()
-                    } ?: let {
-                        Log.e(LOG_TAG,"failed to get video path from Uri $selectedImageUri")
-                    }
-                } ?: let {
-                    Log.e(LOG_TAG, "failed to get image uri")
+                var source = getCameraSource(data)
+                source?.let {
+                    camera!!.source = source
+                    stopBackgroundTask()
+                    startBackgroundTask()
                 }
             } else {
                 Log.e(LOG_TAG, "unkown request code: $requestCode")
@@ -125,11 +130,13 @@ class VideoPlayActivity : AppCompatActivity() {
         }
     }
 
-    fun drawBitmap(bitmap: Bitmap) {
+    fun drawBitmap(camera: Camera, bitmap: Bitmap) {
         var canvas = camera_play.holder.lockCanvas()
         canvas?.let {
-            canvas.drawBitmap(bitmap, 0f, 0f, null)
-            camera_play.holder.unlockCanvasAndPost(canvas)
+            var srcRect = Rect(0, 0, bitmap.width, bitmap.height)
+            var destRect = Rect(0, 0, camera_play.measuredWidth, camera_play.measuredHeight)
+            it.drawBitmap(bitmap, srcRect, destRect, null)
+            camera_play.holder.unlockCanvasAndPost(it)
         }
     }
 
@@ -140,10 +147,11 @@ class VideoPlayActivity : AppCompatActivity() {
         if (intent.hasExtra("camera")) {
             camera = intent.getParcelableExtra("camera")
             camera?.let {
-                cameraCallback = CallbackForCamera(it)
+                cameraCallback = CallbackPlayVideo(it)
+                cameraCallback!!.setSync()
             }
             Log.i(LOG_TAG, "get camera $camera")
-         }
+        }
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
         mVisible = true
@@ -176,8 +184,7 @@ class VideoPlayActivity : AppCompatActivity() {
         }
         camera?.let {
             backgroundTask = backgroundTask ?: VideoProcessTask(
-                    it, cameraCallback, camera_play.measuredWidth,
-                    camera_play.measuredHeight, true, true
+                    it, cameraCallback
             ).apply {
                 execute()
             }
@@ -215,6 +222,10 @@ class VideoPlayActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         Log.i(LOG_TAG, "pause activity")
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
     }
 
     override fun onRestoreInstanceState(savedInstanceState: Bundle?) {

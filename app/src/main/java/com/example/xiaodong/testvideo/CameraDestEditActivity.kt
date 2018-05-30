@@ -1,17 +1,21 @@
 package com.example.xiaodong.testvideo
 
+import android.app.Activity
 import android.content.Intent
 import android.graphics.Color
+import android.net.Uri
 import android.util.Log
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
 import android.os.PersistableBundle
+import android.provider.DocumentsContract
 import android.view.View
+import android.widget.AdapterView
 import kotlinx.android.synthetic.main.activity_camera_dest_edit.*
+import kotlinx.android.synthetic.main.activity_camera_edit.*
 
 class CameraDestEditActivity : AppCompatActivity() {
 
-    private val LOG_TAG = "CameraDestEditActivity"
     private var cameraDestProperties: ArrayList<CameraDestProperty>? = null
     private var cameraDestPropertyAdapter: CameraDestPropertyAdapter? = null
 
@@ -25,6 +29,47 @@ class CameraDestEditActivity : AppCompatActivity() {
         override fun onClick(v: View?) {
             this@CameraDestEditActivity.onButtonClickAddProperty()
         }
+    }
+
+    inner class SelectDirectory : View.OnLongClickListener {
+        override fun onLongClick(v: View?): Boolean {
+            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
+            intent.addCategory(Intent.CATEGORY_DEFAULT)
+            startActivityForResult(
+                    Intent.createChooser(intent, "Choose directory"),
+                    REQUEST_UPLOAD_GALLERY_VIDEO
+            )
+            return true
+        }
+    }
+
+    fun getDocumentUriPath(documentUri: Uri) : String? {
+        val docUri = DocumentsContract.buildDocumentUriUsingTree(
+                documentUri,
+                DocumentsContract.getTreeDocumentId(documentUri)
+        )
+        val cursor = contentResolver.query(
+                docUri,
+                arrayOf(
+                        DocumentsContract.Document.COLUMN_DISPLAY_NAME
+                ), null, null, null
+        )
+        val column_index = cursor.getColumnIndexOrThrow(
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME
+        )
+        cursor.moveToFirst()
+        return cursor.getString(column_index)
+    }
+
+    fun getCameraDestUrl(data: Intent?) : String? {
+        val selectedImageDir = data?.getData()
+        Log.i(LOG_TAG, "selected image dir: $selectedImageDir")
+        selectedImageDir?.let {
+            return getDocumentUriPath(selectedImageDir)
+        } ?: let {
+            Log.e(LOG_TAG, "failed to get dest Uri")
+        }
+        return null
     }
 
     override fun onStart() {
@@ -73,6 +118,7 @@ class CameraDestEditActivity : AppCompatActivity() {
         camera_dest_properties.setAdapter(cameraDestPropertyAdapter!!)
         add_camera_dest_property.setOnClickListener(AddCameraDestProperty())
         edit_camera_dest_save.setOnClickListener(SaveCameraDest())
+        edit_camera_dest_url.setOnLongClickListener(SelectDirectory())
     }
 
     override fun onSaveInstanceState(outState: Bundle?) {
@@ -109,6 +155,27 @@ class CameraDestEditActivity : AppCompatActivity() {
         ) ?: ArrayList()
         cameraDestPropertyAdapter = CameraDestPropertyAdapter(this, cameraDestProperties!!)
         camera_dest_properties.setAdapter(cameraDestPropertyAdapter!!)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (resultCode == Activity.RESULT_OK) {
+            data?.let {
+                when (requestCode) {
+                    CameraEditActivity.REQUEST_UPLOAD_GALLERY_VIDEO -> {
+                        var url = getCameraDestUrl(data)
+                        url?.let {
+                            edit_camera_dest_url.setText(it)
+                        }
+                    }
+                    else -> {
+                        Log.e(LOG_TAG, "unknown request code $requestCode")
+                    }
+                }
+            }
+        } else {
+            Log.e(LOG_TAG, "result code = $resultCode")
+        }
     }
 
     fun onButtonClickSave() {
@@ -172,5 +239,10 @@ class CameraDestEditActivity : AppCompatActivity() {
         Log.i(LOG_TAG, "delete cameraDestProperty $cameraDestProperty")
         cameraDestProperties!!.remove(cameraDestProperty)
         cameraDestPropertyAdapter!!.notifyDataSetChanged()
+    }
+
+    companion object {
+        private val LOG_TAG = "CameraDestEditActivity"
+        private val REQUEST_UPLOAD_GALLERY_VIDEO =  1
     }
  }

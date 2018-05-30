@@ -4,14 +4,23 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.net.Uri
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
 import android.os.PersistableBundle
+import android.provider.MediaStore
 import android.util.Log
 import android.view.View
 import android.widget.AdapterView
 import kotlinx.android.synthetic.main.activity_camera_dest_edit.*
 import kotlinx.android.synthetic.main.activity_camera_edit.*
+import android.support.v4.app.ActivityCompat.startActivityForResult
+import android.provider.DocumentsContract
+import android.content.ContentResolver
+import android.provider.DocumentsContract.Document.COLUMN_MIME_TYPE
+import java.io.File
+import java.net.URI
+
 
 class CameraEditActivity : AppCompatActivity() {
 
@@ -37,6 +46,90 @@ class CameraEditActivity : AppCompatActivity() {
     inner class AddCameraSourceProperty: View.OnClickListener {
         override fun onClick(v: View?) {
             this@CameraEditActivity.onButtonClickAddSourceProperty()
+        }
+    }
+
+    inner class EditCameraDest : AdapterView.OnItemLongClickListener {
+        override fun onItemLongClick(parent: AdapterView<*>?, view: View?, position: Int, id: Long): Boolean {
+            var cameraDest = edit_camera_dests.getItemAtPosition(position) as CameraDest
+            Log.i(LOG_TAG, "item $position long click on $cameraDest")
+            this@CameraEditActivity.onButtonClickEditDest(cameraDest)
+            return true
+        }
+    }
+
+    fun getUriRealPath(contentUri: Uri): String? {
+        val proj = arrayOf(MediaStore.Images.Media.DATA)
+        val cursor = contentResolver.query(contentUri, proj, null, null, null) ?: return null
+        val column_index = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA)
+        cursor.moveToFirst()
+        return cursor.getString(column_index)
+    }
+
+    fun getCameraSource(data: Intent?) : String? {
+        val selectedImageUri = data?.getData()
+        Log.i(LOG_TAG, "selected image uri: $selectedImageUri")
+        selectedImageUri?.let {
+            val selectedImagePath = getUriRealPath(it)
+            Log.i(LOG_TAG, "selected image $selectedImagePath from $it")
+            return selectedImagePath
+        } ?: let {
+            Log.e(LOG_TAG, "failed to get source Uri")
+        }
+        return null
+    }
+
+    fun getDocumentUriPath(documentUri: Uri) : String? {
+        val docUri = DocumentsContract.buildDocumentUriUsingTree(
+                documentUri,
+                DocumentsContract.getTreeDocumentId(documentUri)
+        )
+        val cursor = contentResolver.query(
+                docUri,
+                arrayOf(
+                    DocumentsContract.Document.COLUMN_DISPLAY_NAME
+                ), null, null, null
+        )
+        val column_index = cursor.getColumnIndexOrThrow(
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME
+        )
+        cursor.moveToFirst()
+        return cursor.getString(column_index)
+    }
+
+    fun getCameraDest(data: Intent?) : String? {
+        val selectedImageDir = data?.getData()
+        Log.i(LOG_TAG, "selected image dir: $selectedImageDir")
+        selectedImageDir?.let {
+            return getDocumentUriPath(selectedImageDir)
+        } ?: let {
+            Log.e(LOG_TAG, "failed to get dest Uri")
+        }
+        return null
+    }
+
+    inner class SelectVideo : View.OnLongClickListener {
+        override fun onLongClick(v: View?): Boolean {
+            val intent = Intent()
+            intent.type = "video/*"
+            intent.action = Intent.ACTION_GET_CONTENT
+            startActivityForResult(
+                    Intent.createChooser(intent, "Choose a file"),
+                    REQUEST_TAKE_GALLERY_VIDEO
+            )
+            return true
+        }
+    }
+
+    inner class SelectDirectory : View.OnLongClickListener {
+        override fun onLongClick(v: View?): Boolean {
+            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
+            intent.addCategory(Intent.CATEGORY_DEFAULT)
+            startActivityForResult(
+                    Intent.createChooser(intent, "Choose directory"),
+                    REQUEST_UPLOAD_GALLERY_VIDEO
+            )
+            return true
         }
     }
 
@@ -70,21 +163,12 @@ class CameraEditActivity : AppCompatActivity() {
             Log.i(
                     LOG_TAG,
                     "camera source property $cameraSourceProperty " +
-                            "in camera source properties $cameraSourceProperties"
+                            "is already in camera source properties $cameraSourceProperties"
             )
         } else {
             cameraSourceProperties!!.add(cameraSourceProperty)
         }
         cameraSourcePropertyAdapter!!.notifyDataSetChanged()
-    }
-
-    inner class EditCameraDest : AdapterView.OnItemLongClickListener {
-        override fun onItemLongClick(parent: AdapterView<*>?, view: View?, position: Int, id: Long): Boolean {
-            var cameraDest = edit_camera_dests.getItemAtPosition(position) as CameraDest
-            Log.i(LOG_TAG, "item $position long click on $cameraDest")
-            this@CameraEditActivity.onButtonClickEditDest(cameraDest)
-            return true
-        }
     }
 
     override fun onStart() {
@@ -160,6 +244,8 @@ class CameraEditActivity : AppCompatActivity() {
         edit_camera_dests.setChildIndicatorBounds(0, childIndicatorWidth)
         edit_camera_dests.setChildIndicator(childIndicator)
         add_camera_dest.setOnClickListener(AddCameraDest())
+        edit_camera_source.setOnLongClickListener(SelectVideo())
+        camera_dest_url.setOnLongClickListener(SelectDirectory())
         edit_camera_save.setOnClickListener(SaveCamera())
     }
 
@@ -189,7 +275,7 @@ class CameraEditActivity : AppCompatActivity() {
         }
         var cameraName = savedInstanceState?.getString("name") ?: ""
         var cameraSource = savedInstanceState?.getString("source") ?: ""
-        Log.i(LOG_TAG, "restore state camera name = $cameraName, camera source = $cameraSource")
+        Log.i(LOG_TAG, "restore state $cameraName=$cameraSource")
         edit_camera_name.setText(cameraName)
         edit_camera_source.setText(cameraSource)
         cameraSourceProperties = savedInstanceState?.getParcelableArrayList(
@@ -255,10 +341,27 @@ class CameraEditActivity : AppCompatActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (resultCode == Activity.RESULT_OK) {
             data?.let {
-                val cameraDest: CameraDest = it.getParcelableExtra("cameraDest") as CameraDest
+                var cameraDest: CameraDest? = null
+                if (it.hasExtra("cameraDest")) {
+                    cameraDest = it.getParcelableExtra(
+                            "cameraDest"
+                    ) as CameraDest
+                }
                 when (requestCode) {
-                    0 -> updateCameraDest(cameraDest)
-                    1 -> addCameraDest(cameraDest)
+                    REQUEST_UPDATE_CAMERA_DEST -> updateCameraDest(cameraDest!!)
+                    REQUEST_ADD_CAMERA_DEST -> addCameraDest(cameraDest!!)
+                    REQUEST_TAKE_GALLERY_VIDEO -> {
+                        var source = getCameraSource(data)
+                        source?.let {
+                            edit_camera_source.setText(source)
+                        }
+                    }
+                    REQUEST_UPLOAD_GALLERY_VIDEO -> {
+                        var url = getCameraDest(data)
+                        url?.let {
+                            camera_dest_url.setText(it)
+                        }
+                    }
                     else -> {
                         Log.e(LOG_TAG, "unknown request code $requestCode")
                     }
@@ -334,5 +437,9 @@ class CameraEditActivity : AppCompatActivity() {
             return (dipValue*scale+0.5f).toInt()
         }
         private val LOG_TAG = "CameraEditActivity"
+        private val REQUEST_ADD_CAMERA_DEST = 1
+        private var REQUEST_UPDATE_CAMERA_DEST = 2
+        private val REQUEST_TAKE_GALLERY_VIDEO = 3
+        private val REQUEST_UPLOAD_GALLERY_VIDEO = 4
     }
 }

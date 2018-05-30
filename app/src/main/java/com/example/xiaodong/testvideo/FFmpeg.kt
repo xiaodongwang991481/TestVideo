@@ -7,8 +7,8 @@ class FFmpeg {
      */
     external fun stringFromJNI(): String
     external fun decode(
-            source: String, dests: Array<String>?, width: Int, height: Int, callback: CallbackFromJNI?,
-            decode: Boolean, sync: Boolean): Boolean
+            source: String, dests: Array<String>?, callback: CallbackFromJNI?
+    ): Boolean
 
     companion object {
         @JvmStatic

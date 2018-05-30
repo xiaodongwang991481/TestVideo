@@ -43,6 +43,8 @@ class CameraStreamHolder {
     jobject callback = NULL;
     jmethodID bitmapCallbackMethod = NULL;
     jmethodID finishCallbackMethod = NULL;
+    bool decode = false;
+    bool sync = false;
     jobject bitmap = NULL;
     void* buffer = NULL;
     bool initialized = false;
@@ -60,12 +62,13 @@ class CameraStreamHolder {
 public:
     CameraStreamHolder(
             JNIEnv * const env, jstring source, jobjectArray dests,
-            const int width, const int height,
             jobject callback
-    ) : env(env), source(source), camera_source(env->GetStringUTFChars(source, NULL)),
-        width(width), height(height) {
+    ) : env(env), source(source), camera_source(env->GetStringUTFChars(source, NULL)) {
         LOGI("create camera holder source: %s.\n", camera_source);
-        this->callback = env->NewGlobalRef(callback);
+        if (!env->IsSameObject(callback, NULL)) {
+            this->callback = env->NewGlobalRef(callback);
+            decode = true;
+        }
         if (!env->IsSameObject(dests, NULL)) {
             int destLength = env->GetArrayLength(dests);
             for (int i = 0; i < destLength; i++) {
@@ -136,6 +139,31 @@ public:
         }
         LOGI("should be finished? %d.\n", finished);
         return finished;
+    }
+
+    bool Sync() {
+        LOGI("init sync callback method.\n");
+        jclass cbClass = env->FindClass("com/example/xiaodong/testvideo/CallbackFromJNI");
+        if (env->IsSameObject(cbClass, NULL)) {
+            LOGE("failed to get CallbackFromJNI class.\n");
+            return false;
+        }
+        jmethodID  syncCallbackMethod = env->GetMethodID(cbClass, "shouldSync", "()Z");
+        if (syncCallbackMethod == NULL) {
+            LOGE("failed to get syncCallback method.\n");
+            return false;
+        }
+        if (env->IsSameObject(callback, NULL)) {
+            LOGE("callback is NULL");
+            return true;
+        }
+        jboolean sync = env->CallBooleanMethod(callback, syncCallbackMethod);
+        if (env->ExceptionCheck()) {
+            LOGE("exception occurs when calling syncCallback.\n");
+            return true;
+        }
+        LOGI("should be in sync? %d.\n", sync);
+        return sync;
     }
 
     jobject createBitmap() {
@@ -291,13 +319,9 @@ public:
             return false; // Error copying codec context
         }
         LOGI("get codec context success.\n")
-        if (width == 0) {
-            width = codecCtx->width;
-        }
+        width = codecCtx->width;
         LOGI("get width %d.\n", width);
-        if (height == 0) {
-            height = codecCtx->height;
-        }
+        height = codecCtx->height;
         LOGI("get height %d.\n", height);
         bitmap = createBitmap();
         if (env->IsSameObject(bitmap, NULL)) {
@@ -315,8 +339,10 @@ public:
             return false;
         }
         LOGI("finish callback method is got.n");
+        sync = Sync();
+        LOGI("sync=%d", sync)
         // Open codec
-        if((err_code = avcodec_open2(codecCtx, pCodec, NULL)) < 0){
+        if((err_code = avcodec_open2(codecCtx, pCodec, NULL)) < 0) {
             LOGE("Could not open codec.\n");
             check_error(err_code);
             return false; // Could not open codec
@@ -349,22 +375,26 @@ public:
                 NULL,
                 NULL
         );
-        LOGI("get sws context.\n");
+        LOGI("got sws context.\n");
         AVStream* istream = formatCtx->streams[videoStream];
         int destLength = dests.size();
         for (int i = 0; i < destLength; i++) {
             const char* camera_dest = camera_dests[i];
-            if(avformat_alloc_output_context2(&oformatCtxs[i], NULL, "flv", camera_dest) < 0){
+            if((err_code = avformat_alloc_output_context2(
+                    &oformatCtxs[i], NULL, "flv", camera_dest)
+               ) < 0) {
                 LOGE("oformatCtx %s is failed to alloc.\n", camera_dest);
+                check_error(err_code);
                 return false;
             }
             LOGI("alloc output context for %s.\n", camera_dest);
             AVFormatContext* oformatCtx = oformatCtxs[i];
-            if(avio_open2(
+            if((err_code = avio_open2(
                     &(oformatCtx->pb), camera_dest,
                     AVIO_FLAG_WRITE, &(oformatCtx->interrupt_callback), NULL
-            ) < 0){
-                LOGE("failed to open AVIO: %s.\n", camera_dest)
+            )) < 0) {
+                LOGE("failed to open AVIO: %s.\n", camera_dest);
+                check_error(err_code);
                 return false;
             }
             LOGI("open avio for %s success.\n", camera_dest);
@@ -376,8 +406,9 @@ public:
             LOGI("open oput stream for %s success.\n", camera_dest);
             copy_video_stream_info(ostream, istream, oformatCtx);
             av_dump_format(oformatCtx, 0, camera_dest, 1);
-            if(avformat_write_header(oformatCtx, NULL) != 0){
+            if((err_code = avformat_write_header(oformatCtx, NULL)) < 0){
                 LOGE("failed to write header: %s.\n", camera_dest);
+                check_error(err_code);
                 return false;
             }
             LOGI("write header to %s.\n", camera_dest);
@@ -396,7 +427,7 @@ public:
         return true;
     }
 
-    bool process_packets(bool decode=true, bool sync=false) {
+    bool process_packets() {
         LOGI("process packets with decode=%d sync=%d", decode, sync);
         AVPacket packet;
         av_init_packet(&packet);
@@ -406,7 +437,7 @@ public:
             if(packet.stream_index == videoStream){
                 if (decode) {
                     LOGI("decode one packet.\n")
-                    if(!decode_packet(packet, &base_time_ms, &base_pts, sync)) {
+                    if(!decode_packet(packet, &base_time_ms, &base_pts)) {
                         LOGE("failed to decode packet at %lld.\n", base_time_ms);
                     }
                 }
@@ -443,7 +474,7 @@ public:
         return true;
     }
 
-    bool decode_packet(AVPacket& packet, int64_t* base_time_ms, int64_t* base_pts, bool sync=false) {
+    bool decode_packet(AVPacket& packet, int64_t* base_time_ms, int64_t* base_pts) {
         AVStream* istream = formatCtx->streams[videoStream];
         AVRational ms_rational = av_make_q(1, 1000000);
         int frameFinished = 0;
@@ -563,16 +594,13 @@ Java_com_example_xiaodong_testvideo_FFmpeg_decode(
         jobject jobject1,
         jstring source,
         jobjectArray dests,
-        jint width, jint height,
-        jobject callback,
-        jboolean decode,
-        jboolean sync
+        jobject callback
 ) {
-    CameraStreamHolder holder(env, source, dests, width, height, callback);
+    CameraStreamHolder holder(env, source, dests, callback);
     if(!holder.init()) {
         return false;
     }
-    return holder.process_packets(decode, sync);
+    return holder.process_packets();
 }
 
 extern "C" JNIEXPORT void

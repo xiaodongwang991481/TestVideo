@@ -7,19 +7,38 @@ open class CallbackForCamera(camera: Camera): CallbackFromJNI {
 
     public val camera = camera
     @Volatile private var finished = false
+    @Volatile private var inSync = false
 
     override fun bitmapCallback(bitmap: Bitmap?) {
         Log.i(LOG_TAG, "bitmapCallback on $bitmap")
     }
 
     override fun finishCallback(): Boolean {
-        var status = false
         synchronized(this) {
-            // Log.i(LOG_TAG, "finishCallback with finish=$finished")
-            status = finished
+            Log.i(LOG_TAG, "finishCallback with finish=$finished")
+            return finished
         }
-        Log.i(LOG_TAG, "finish status=$status")
-        return status
+    }
+
+    override fun shouldSync(): Boolean {
+        synchronized(this) {
+            Log.i(LOG_TAG, "shouldSync=$inSync")
+            return inSync
+        }
+    }
+
+    fun setSync() {
+        synchronized(this) {
+            inSync = true
+            Log.i(LOG_TAG, "set inSync=$inSync")
+        }
+    }
+
+    fun clearSync() {
+        synchronized(this) {
+            inSync = false
+            Log.i(LOG_TAG, "clear insync=$inSync")
+        }
     }
 
     fun setFinished() {

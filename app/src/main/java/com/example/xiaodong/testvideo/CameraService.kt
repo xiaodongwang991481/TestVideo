@@ -41,8 +41,7 @@ class CameraService : Service() {
             for (camera in it) {
                 var cameraCallback = CallbackProcessVideo(camera)
                 var backgroundTask = VideoProcessTask(
-                        camera, cameraCallback, 0,
-                        0, true, true
+                        camera, cameraCallback, false
                 ).apply {
                     execute()
                 }

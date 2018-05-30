@@ -12,6 +12,7 @@ data class Camera(val name: String, var source: String,
             parcel.readString(),
             ArrayList<CameraSourceProperty>(),
             ArrayList<CameraDest>()) {
+        parcel.readTypedList(source_properties, CameraSourceProperty.CREATOR)
         parcel.readTypedList(dests, CameraDest.CREATOR)
     }
 
