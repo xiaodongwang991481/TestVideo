@@ -91,12 +91,13 @@ class CameraService : Service() {
         Log.i(LOG_TAG, "create service")
         dbHelper = DBOpenHelper(applicationContext, "my.db", null, 1)
         cameras = getInitialCameraList()
+        val requestID = System.currentTimeMillis()
         val localBuilder = Notification.Builder(applicationContext)
         localBuilder.setContentIntent(
                 PendingIntent.getActivity(
-                        applicationContext, 0,
+                        applicationContext, requestID.toInt(),
                         Intent(applicationContext, MainActivity::class.java),
-                        0
+                        PendingIntent.FLAG_UPDATE_CURRENT
                 )
         )
         localBuilder.setAutoCancel(false)
@@ -106,7 +107,7 @@ class CameraService : Service() {
         localBuilder.setContentText("Running...")
         var notification = localBuilder.build()
         Log.i(LOG_TAG, "send notification=$notification")
-        startForeground(100, notification)
+        startForeground(1, notification)
     }
 
     fun reloadCameras(intent: Intent?) {
