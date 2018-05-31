@@ -58,56 +58,6 @@ class CameraEditActivity : AppCompatActivity() {
         }
     }
 
-    fun getUriRealPath(contentUri: Uri): String? {
-        val proj = arrayOf(MediaStore.Images.Media.DATA)
-        val cursor = contentResolver.query(contentUri, proj, null, null, null) ?: return null
-        val column_index = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA)
-        cursor.moveToFirst()
-        return cursor.getString(column_index)
-    }
-
-    fun getCameraSource(data: Intent?) : String? {
-        val selectedImageUri = data?.getData()
-        Log.i(LOG_TAG, "selected image uri: $selectedImageUri")
-        selectedImageUri?.let {
-            val selectedImagePath = getUriRealPath(it)
-            Log.i(LOG_TAG, "selected image $selectedImagePath from $it")
-            return selectedImagePath
-        } ?: let {
-            Log.e(LOG_TAG, "failed to get source Uri")
-        }
-        return null
-    }
-
-    fun getDocumentUriPath(documentUri: Uri) : String? {
-        val docUri = DocumentsContract.buildDocumentUriUsingTree(
-                documentUri,
-                DocumentsContract.getTreeDocumentId(documentUri)
-        )
-        val cursor = contentResolver.query(
-                docUri,
-                arrayOf(
-                    DocumentsContract.Document.COLUMN_DISPLAY_NAME
-                ), null, null, null
-        )
-        val column_index = cursor.getColumnIndexOrThrow(
-                DocumentsContract.Document.COLUMN_DISPLAY_NAME
-        )
-        cursor.moveToFirst()
-        return cursor.getString(column_index)
-    }
-
-    fun getCameraDest(data: Intent?) : String? {
-        val selectedImageDir = data?.getData()
-        Log.i(LOG_TAG, "selected image dir: $selectedImageDir")
-        selectedImageDir?.let {
-            return getDocumentUriPath(selectedImageDir)
-        } ?: let {
-            Log.e(LOG_TAG, "failed to get dest Uri")
-        }
-        return null
-    }
-
     inner class SelectVideo : View.OnLongClickListener {
         override fun onLongClick(v: View?): Boolean {
             val intent = Intent()
@@ -334,7 +284,7 @@ class CameraEditActivity : AppCompatActivity() {
         Log.i(LOG_TAG, "edit camera dest $cameraDest")
         val intent = Intent(this, CameraDestEditActivity::class.java)
         intent.putExtra("cameraDest", cameraDest)
-        this.startActivityForResult(intent, 0)
+        this.startActivityForResult(intent, REQUEST_UPDATE_CAMERA_DEST)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -351,13 +301,13 @@ class CameraEditActivity : AppCompatActivity() {
                     REQUEST_UPDATE_CAMERA_DEST -> updateCameraDest(cameraDest!!)
                     REQUEST_ADD_CAMERA_DEST -> addCameraDest(cameraDest!!)
                     REQUEST_TAKE_GALLERY_VIDEO -> {
-                        var source = getCameraSource(data)
+                        var source = FileManager.getCameraSource(this, it)
                         source?.let {
-                            edit_camera_source.setText(source)
+                            edit_camera_source.setText(it)
                         }
                     }
                     REQUEST_UPLOAD_GALLERY_VIDEO -> {
-                        var url = getCameraDest(data)
+                        var url = FileManager.getCameraDestUrl(this, it)
                         url?.let {
                             camera_dest_url.setText(it)
                         }

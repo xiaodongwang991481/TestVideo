@@ -43,35 +43,6 @@ class CameraDestEditActivity : AppCompatActivity() {
         }
     }
 
-    fun getDocumentUriPath(documentUri: Uri) : String? {
-        val docUri = DocumentsContract.buildDocumentUriUsingTree(
-                documentUri,
-                DocumentsContract.getTreeDocumentId(documentUri)
-        )
-        val cursor = contentResolver.query(
-                docUri,
-                arrayOf(
-                        DocumentsContract.Document.COLUMN_DISPLAY_NAME
-                ), null, null, null
-        )
-        val column_index = cursor.getColumnIndexOrThrow(
-                DocumentsContract.Document.COLUMN_DISPLAY_NAME
-        )
-        cursor.moveToFirst()
-        return cursor.getString(column_index)
-    }
-
-    fun getCameraDestUrl(data: Intent?) : String? {
-        val selectedImageDir = data?.getData()
-        Log.i(LOG_TAG, "selected image dir: $selectedImageDir")
-        selectedImageDir?.let {
-            return getDocumentUriPath(selectedImageDir)
-        } ?: let {
-            Log.e(LOG_TAG, "failed to get dest Uri")
-        }
-        return null
-    }
-
     override fun onStart() {
         super.onStart()
         Log.i(LOG_TAG, "start activity")
@@ -162,8 +133,8 @@ class CameraDestEditActivity : AppCompatActivity() {
         if (resultCode == Activity.RESULT_OK) {
             data?.let {
                 when (requestCode) {
-                    CameraEditActivity.REQUEST_UPLOAD_GALLERY_VIDEO -> {
-                        var url = getCameraDestUrl(data)
+                    REQUEST_UPLOAD_GALLERY_VIDEO -> {
+                        var url = FileManager.getCameraDestUrl(this, it)
                         url?.let {
                             edit_camera_dest_url.setText(it)
                         }

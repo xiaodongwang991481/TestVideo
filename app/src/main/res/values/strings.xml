@@ -26,6 +26,6 @@
     <string name="listview_footer">End</string>
     <string name="title_activity_video_play">VideoPlayer</string>
     <string name="select_video">Select Video</string>
-    <String name="start_service">Start Serivce</String>
-    <String name="stop_service">Stop Service</String>
+    <string name="start_service">Start Serivce</string>
+    <string name="stop_service">Stop Service</string>
 </resources>

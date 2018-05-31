@@ -11,7 +11,12 @@ import android.view.View
 import android.widget.AdapterView
 import android.Manifest.permission
 import android.Manifest.permission.SEND_SMS
+import android.app.Notification
+import android.app.PendingIntent
 import android.content.pm.PackageManager
+import android.content.Context.NOTIFICATION_SERVICE
+import android.app.NotificationManager
+import android.content.Context
 
 
 class MainActivity : AppCompatActivity() {
@@ -47,7 +52,7 @@ class MainActivity : AppCompatActivity() {
 
     inner class StartService : View.OnClickListener {
         override fun onClick(v: View?) {
-            var intent = Intent("com.example.xiaodong.testvideo.CameraService")
+            val intent = Intent(this@MainActivity, CameraService::class.java)
             Log.i(LOG_TAG, "start service")
             startService(intent)
 
@@ -56,9 +61,30 @@ class MainActivity : AppCompatActivity() {
 
     inner class StopService : View.OnClickListener {
         override fun onClick(v: View?) {
-            var intent = Intent("com.example.xiaodong.testvideo.CameraService")
+            val intent = Intent(this@MainActivity, CameraService::class.java)
             Log.i(LOG_TAG, "stop service")
             stopService(intent)
+        }
+    }
+
+    inner class TryNotification : View.OnClickListener {
+        override fun onClick(v: View?) {
+            val requestID = System.currentTimeMillis()
+            val intent = Intent(applicationContext, MainActivity::class.java)
+            intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            val localBuilder = Notification.Builder(applicationContext)
+                    .setContentIntent(PendingIntent.getActivity(
+                            applicationContext, requestID.toInt(),
+                            intent,
+                            PendingIntent.FLAG_UPDATE_CURRENT
+                    )).setAutoCancel(false).setTicker("Camera Service is Started")
+                    .setSmallIcon(R.mipmap.ic_launcher)
+                    .setContentTitle("Camera Service")
+                    .setContentText("Running...")
+            val notificationManager = getSystemService(
+                    Context.NOTIFICATION_SERVICE
+            ) as NotificationManager
+            notificationManager.notify(1, localBuilder.build())
         }
     }
 
@@ -90,6 +116,7 @@ class MainActivity : AppCompatActivity() {
         save_cameras.setOnClickListener(SaveCameras())
         start_service.setOnClickListener(StartService())
         stop_service.setOnClickListener(StopService())
+        try_notification.setOnClickListener(TryNotification())
     }
 
     fun onButtonClickAdd() {

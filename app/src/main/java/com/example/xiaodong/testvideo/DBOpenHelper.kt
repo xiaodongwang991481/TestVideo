@@ -95,8 +95,9 @@ class DBOpenHelper(
                             var destName = destCursor.getString(destCursor.getColumnIndex("name"))
                             var destUrl =  destCursor.getString(destCursor.getColumnIndex("url"))
                             var destPropertyCursor = db.query(
-                                    "camera_dest_property", null, "dest_name=?",
-                                    arrayOf(destName), null, null, null
+                                    "camera_dest_property", null,
+                                    "dest_name=? and camera_name=?",
+                                    arrayOf(destName, name), null, null, null
                             )
                             var destProperties = ArrayList<CameraDestProperty>()
                             try {
@@ -107,7 +108,10 @@ class DBOpenHelper(
                                     var destPropertyValue = destPropertyCursor.getString(
                                             destPropertyCursor.getColumnIndex("value")
                                     )
-                                    destProperties.add(CameraDestProperty(name = destPropertyName, value = destPropertyValue))
+                                    destProperties.add(CameraDestProperty(
+                                            name = destPropertyName,
+                                            value = destPropertyValue
+                                    ))
                                 }
                             } catch (e: Exception) {
                                 Log.e(LOG_TAG, e.message)
@@ -173,6 +177,7 @@ class DBOpenHelper(
                 for (cameraDest in camera.dests) {
                     var cameraDestContent = ContentValues()
                     cameraDestContent.put("name", cameraDest.name)
+                    cameraDestContent.put("url", cameraDest.url)
                     cameraDestContent.put("camera_name", camera.name)
                     db.insert("camera_dest", null, cameraDestContent)
                     for (cameraDestProperty in cameraDest.dest_properties) {

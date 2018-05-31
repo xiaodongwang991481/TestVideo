@@ -91,32 +91,11 @@ class VideoPlayActivity : AppCompatActivity() {
     var cameraCallback: CallbackForCamera? = null
     var camera: Camera? = null
 
-    fun getUriRealPath(contentUri: Uri): String? {
-        val proj = arrayOf(MediaStore.Images.Media.DATA)
-        val cursor = contentResolver.query(contentUri, proj, null, null, null) ?: return null
-        val column_index = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA)
-        cursor.moveToFirst()
-        return cursor.getString(column_index)
-    }
-
-    fun getCameraSource(data: Intent?) : String? {
-        val selectedImageUri = data?.getData()
-        Log.i(LOG_TAG, "selected image uri: $selectedImageUri")
-        selectedImageUri?.let {
-            val selectedImagePath = getUriRealPath(it)
-            Log.i(LOG_TAG, "selected image $selectedImagePath from $it")
-            return selectedImagePath
-        } ?: let {
-            Log.e(LOG_TAG, "failed to get Uri")
-        }
-        return null
-    }
-
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (resultCode == Activity.RESULT_OK) {
             if (requestCode == REQUEST_TAKE_GALLERY_VIDEO) {
-                var source = getCameraSource(data)
+                var source = FileManager.getCameraSource(this, data)
                 source?.let {
                     camera!!.source = source
                     stopBackgroundTask()

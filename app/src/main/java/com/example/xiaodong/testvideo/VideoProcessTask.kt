@@ -6,9 +6,9 @@ import kotlinx.android.synthetic.main.activity_video_play.*
 
 class VideoProcessTask : AsyncTask<Any, Any, Unit> {
 
+    val camera: Camera
     private val lock = java.lang.Object()
     @Volatile private var finished = false
-    private val camera: Camera
     private val cameraCallback: CallbackForCamera?
     private val copyToDests: Boolean
 
