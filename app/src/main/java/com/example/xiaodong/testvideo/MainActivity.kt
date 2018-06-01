@@ -16,7 +16,9 @@ import android.app.PendingIntent
 import android.content.pm.PackageManager
 import android.content.Context.NOTIFICATION_SERVICE
 import android.app.NotificationManager
+import android.app.TaskStackBuilder
 import android.content.Context
+import android.support.v4.app.NotificationCompat
 
 
 class MainActivity : AppCompatActivity() {
@@ -69,22 +71,11 @@ class MainActivity : AppCompatActivity() {
 
     inner class TryNotification : View.OnClickListener {
         override fun onClick(v: View?) {
-            val requestID = System.currentTimeMillis()
-            val intent = Intent(applicationContext, MainActivity::class.java)
-            intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            val localBuilder = Notification.Builder(applicationContext)
-                    .setContentIntent(PendingIntent.getActivity(
-                            applicationContext, requestID.toInt(),
-                            intent,
-                            PendingIntent.FLAG_UPDATE_CURRENT
-                    )).setAutoCancel(false).setTicker("Camera Service is Started")
-                    .setSmallIcon(R.mipmap.ic_launcher)
-                    .setContentTitle("Camera Service")
-                    .setContentText("Running...")
+            val notification = CameraUtil.createNotification(applicationContext)
             val notificationManager = getSystemService(
                     Context.NOTIFICATION_SERVICE
             ) as NotificationManager
-            notificationManager.notify(1, localBuilder.build())
+            notificationManager.notify(1, notification)
         }
     }
 
@@ -246,18 +237,22 @@ class MainActivity : AppCompatActivity() {
 
     fun requestPermissions() {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-            if (checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_DENIED) {
-                Log.d("permission", "permission denied to CAMERA - requesting it")
-                val permissions = arrayOf<String>(Manifest.permission.CAMERA)
-                requestPermissions(permissions, PERMISSION_REQUEST_CODE)
-            }
-            if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_DENIED) {
-                Log.d("permission", "permission denied to CAMERA - requesting it")
-                val permissions = arrayOf<String>(Manifest.permission.READ_EXTERNAL_STORAGE)
-                requestPermissions(permissions, PERMISSION_REQUEST_CODE)
-            }
-            if (checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_DENIED) {
-                val permissions = arrayOf<String>(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            for (permission in arrayOf(
+                    Manifest.permission.CAMERA,
+                    Manifest.permission.READ_EXTERNAL_STORAGE,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                    Manifest.permission.ACCESS_NOTIFICATION_POLICY,
+                    Manifest.permission.BIND_NOTIFICATION_LISTENER_SERVICE,
+                    Manifest.permission.INSTALL_PACKAGES,
+                    Manifest.permission.INTERNET,
+                    Manifest.permission.BIND_REMOTEVIEWS,
+                    Manifest.permission.CAPTURE_VIDEO_OUTPUT,
+                    Manifest.permission.STATUS_BAR,
+                    Manifest.permission.EXPAND_STATUS_BAR,
+                    Manifest.permission.BIND_TEXT_SERVICE
+            )) {
+                Log.d("permission", "permission denied to $permission - requesting it")
+                val permissions = arrayOf<String>(permission)
                 requestPermissions(permissions, PERMISSION_REQUEST_CODE)
             }
         }
