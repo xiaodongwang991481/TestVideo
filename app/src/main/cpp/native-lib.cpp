@@ -8,6 +8,7 @@
 using namespace std;
 
 extern "C" {
+#define __STDC_CONSTANT_MACROS
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libswscale/swscale.h>
@@ -413,8 +414,9 @@ public:
             }
             LOGI("write header to %s.\n", camera_dest);
         }
-        if (AndroidBitmap_lockPixels(env, bitmap, &buffer) < 0) {
+        if ((err_code = AndroidBitmap_lockPixels(env, bitmap, &buffer)) < 0) {
             LOGE("failed to lock pixels.\n");
+            check_error(err_code);
             return false;
         }
         LOGI("lock buffer %p.\n", buffer);
@@ -433,20 +435,33 @@ public:
         av_init_packet(&packet);
         int64_t base_time_ms = av_gettime();
         int64_t base_pts = 0;
-        while(av_read_frame(formatCtx, &packet) >= 0){
+        int err_code;
+        while(true){
+            if ((err_code = avcodec_send_packet(formatCtx, &packet)) < 0) {
+                LOGE("Failed to read frame.\n");
+                check_error(err_code);
+                break;
+            }
             if(packet.stream_index == videoStream){
                 if (decode) {
-                    LOGI("decode one packet.\n")
+                    LOGI(
+                            "decode one packet at base time ms=%lld bse pts=%lld.\n",
+                            base_time_ms, base_pts
+                    )
                     if(!decode_packet(packet, &base_time_ms, &base_pts)) {
-                        LOGE("failed to decode packet at %lld.\n", base_time_ms);
+                        LOGE(
+                                "failed to decode packet at time=%lld pts=%lld.\n",
+                                base_time_ms, base_pts
+                        );
                     }
                 }
                 int destLength = dests.size();
                 for (int i = 0; i < destLength; i++) {
                     const char* camera_dest = camera_dests[i];
                     AVFormatContext* oformatCtx = oformatCtxs[i];
-                    if(av_interleaved_write_frame(oformatCtx, &packet) < 0) {
+                    if((err_code = av_interleaved_write_frame(oformatCtx, &packet)) < 0) {
                         LOGE("failed to write frame: %s.\n", camera_dest);
+                        check_error(err_code);
                     } else {
                         LOGI("write one frame: %s.\n", camera_dest);
                     }
@@ -465,8 +480,10 @@ public:
         for (int i = 0; i < destLength; i++) {
             const char* camera_dest = camera_dests[i];
             AVFormatContext* oformatCtx = oformatCtxs[i];
-            if(av_write_trailer(oformatCtx) < 0) {
+            int err_code;
+            if((err_code = av_write_trailer(oformatCtx)) < 0) {
                 LOGE("failed to write trailer: %s.\n", camera_dest);
+                check_error(err_code);
             } else {
                 LOGI("write trailer: %s.\n", camera_dest);
             }
@@ -477,41 +494,41 @@ public:
     bool decode_packet(AVPacket& packet, int64_t* base_time_ms, int64_t* base_pts) {
         AVStream* istream = formatCtx->streams[videoStream];
         AVRational ms_rational = av_make_q(1, 1000000);
-        int frameFinished = 0;
-        if (avcodec_decode_video2(
-                codecCtx, decodedFrame, &frameFinished, &packet
-        ) < 0) {
-            LOGE("Decode Error.\n");
-            return false;
-        } else if (frameFinished > 0) {
-            if (sync) {
-                int64_t time_ms_wait = 0;
-                int64_t time_ms_current = av_gettime();
-                int64_t time_ms_elapsed = time_ms_current - *base_time_ms;
-                int64_t time_ms_duration = av_rescale_q(
-                        (packet.pts - *base_pts), istream->time_base, ms_rational
+        int err_code;
+        while (true) {
+            if ((err_code = avcodec_receive_frame(
+                    codecCtx, decodedFrame
+            )) < 0) {
+                LOGE("Decode Error.\n");
+                check_error(err_code);
+                break;
+            } else {
+                if (sync) {
+                    int64_t time_ms_wait = 0;
+                    int64_t time_ms_current = av_gettime();
+                    int64_t time_ms_elapsed = time_ms_current - *base_time_ms;
+                    int64_t time_ms_duration = av_rescale_q(
+                            (packet.pts - *base_pts), istream->time_base, ms_rational
+                    );
+                    LOGI("time duration: %lld.\n", time_ms_duration);
+                    time_ms_wait = time_ms_duration - time_ms_elapsed;
+                    LOGI("time ms elapsed: %lld.\n", time_ms_elapsed);
+                    LOGI("time ms to wait: %lld.\n", time_ms_wait);
+                    if (time_ms_wait > 10000) {
+                        av_usleep(time_ms_wait);
+                    }
+                    if (time_ms_wait < -10000) {
+                        *base_pts = packet.pts;
+                        *base_time_ms = time_ms_current;
+                    }
+                }
+                LOGI("packet pts=%ld dts=%ld.\n", packet.pts, packet.dts);
+                sws_scale(sws_ctx, (const uint8_t *const *) decodedFrame->data,
+                          decodedFrame->linesize, 0, codecCtx->height,
+                          frameRGBA->data, frameRGBA->linesize
                 );
-                LOGI("time duration: %lld.\n", time_ms_duration);
-                time_ms_wait = time_ms_duration - time_ms_elapsed;
-                LOGI("time ms elapsed: %lld.\n", time_ms_elapsed);
-                LOGI("time ms to wait: %lld.\n", time_ms_wait);
-                if (time_ms_wait > 10000) {
-                    av_usleep(time_ms_wait);
-                }
-                if (time_ms_wait < -10000) {
-                    *base_pts = packet.pts;
-                    *base_time_ms = time_ms_current;
-                }
+                applyBitmapCallback();
             }
-            LOGI("packet pts=%ld dts=%ld.\n", packet.pts, packet.dts);
-            sws_scale(sws_ctx, (const uint8_t *const *) decodedFrame->data,
-                      decodedFrame->linesize, 0, codecCtx->height,
-                      frameRGBA->data, frameRGBA->linesize
-            );
-            applyBitmapCallback();
-        } else {
-            LOGE("Frame not finished.\n");
-            return false;
         }
         return true;
     }

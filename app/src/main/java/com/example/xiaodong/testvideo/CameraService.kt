@@ -45,7 +45,7 @@ class CameraService : Service() {
             for (camera in it) {
                 Log.i(LOG_TAG, "create background task for camera $camera")
                 var cameraCallback = CallbackProcessVideo(camera)
-                cameraCallback.setFinished()
+                cameraCallback.clearFinished()
                 cameraCallback.clearSync()
                 var backgroundTask = VideoProcessTask(
                         camera, cameraCallback, true
@@ -91,21 +91,7 @@ class CameraService : Service() {
         Log.i(LOG_TAG, "create service")
         dbHelper = DBOpenHelper(applicationContext, "my.db", null, 1)
         cameras = getInitialCameraList()
-        val requestID = System.currentTimeMillis()
-        val localBuilder = Notification.Builder(applicationContext)
-        localBuilder.setContentIntent(
-                PendingIntent.getActivity(
-                        applicationContext, requestID.toInt(),
-                        Intent(applicationContext, MainActivity::class.java),
-                        PendingIntent.FLAG_UPDATE_CURRENT
-                )
-        )
-        localBuilder.setAutoCancel(false)
-        localBuilder.setTicker("Camera Service is Started")
-        localBuilder.setSmallIcon(R.mipmap.ic_launcher)
-        localBuilder.setContentTitle("Camera Service")
-        localBuilder.setContentText("Running...")
-        var notification = localBuilder.build()
+        val notification = CameraUtil.createNotification(applicationContext)
         Log.i(LOG_TAG, "send notification=$notification")
         startForeground(1, notification)
     }
