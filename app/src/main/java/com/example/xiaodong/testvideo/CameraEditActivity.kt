@@ -307,7 +307,7 @@ class CameraEditActivity : AppCompatActivity() {
                         }
                     }
                     REQUEST_UPLOAD_GALLERY_VIDEO -> {
-                        var url = FileManager.getCameraDestUrl(this, it)
+                        var url = FileManager.getCameraDestUrl(it)
                         url?.let {
                             camera_dest_url.setText(it)
                         }

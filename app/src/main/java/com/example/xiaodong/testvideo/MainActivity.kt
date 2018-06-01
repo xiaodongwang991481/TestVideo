@@ -236,6 +236,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun requestPermissions() {
+        var permissions = ArrayList<String>()
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
             for (permission in arrayOf(
                     Manifest.permission.CAMERA,
@@ -252,9 +253,10 @@ class MainActivity : AppCompatActivity() {
                     Manifest.permission.BIND_TEXT_SERVICE
             )) {
                 Log.d("permission", "permission denied to $permission - requesting it")
-                val permissions = arrayOf<String>(permission)
-                requestPermissions(permissions, PERMISSION_REQUEST_CODE)
+                permissions.add(permission)
+
             }
+            requestPermissions(permissions.toTypedArray(), PERMISSION_REQUEST_CODE)
         }
     }
 

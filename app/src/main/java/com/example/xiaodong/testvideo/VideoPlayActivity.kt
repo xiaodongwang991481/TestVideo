@@ -83,7 +83,7 @@ class VideoPlayActivity : AppCompatActivity() {
         override fun bitmapCallback(bitmap: Bitmap?) {
             super.bitmapCallback(bitmap)
             bitmap?.let {
-                this@VideoPlayActivity.drawBitmap(camera, bitmap)
+                this@VideoPlayActivity.drawBitmap(bitmap)
             }
         }
     }
@@ -109,7 +109,7 @@ class VideoPlayActivity : AppCompatActivity() {
         }
     }
 
-    fun drawBitmap(camera: Camera, bitmap: Bitmap) {
+    fun drawBitmap(bitmap: Bitmap) {
         var canvas = camera_play.holder.lockCanvas()
         canvas?.let {
             var srcRect = Rect(0, 0, bitmap.width, bitmap.height)

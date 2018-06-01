@@ -50,7 +50,7 @@ class FileManager {
             return null
         }
 
-        fun getDocumentUriPath(context: Context, documentUri: Uri) : String? {
+        fun getDocumentUriPath(documentUri: Uri) : String? {
             val docUri = DocumentsContract.buildDocumentUriUsingTree(
                     documentUri,
                     DocumentsContract.getTreeDocumentId(documentUri))
@@ -62,11 +62,11 @@ class FileManager {
             return path
         }
 
-        public fun getCameraDestUrl(context: Context, data: Intent?) : String? {
+        public fun getCameraDestUrl(data: Intent?) : String? {
             val selectedDir = data?.getData()
             Log.i(LOG_TAG, "selected dir: $selectedDir")
             selectedDir?.let {
-                var selectedPath = getDocumentUriPath(context, it)
+                var selectedPath = getDocumentUriPath(it)
                 Log.i(LOG_TAG, "select directory path $selectedPath from $it")
                 val filename = SimpleDateFormat("ddMMyy-hhmmss").format(Date())
                 Log.i(LOG_TAG, "generated filename=$filename")

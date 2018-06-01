@@ -437,20 +437,21 @@ public:
         int64_t base_pts = 0;
         int err_code;
         while(true){
-            if ((err_code = avcodec_send_packet(formatCtx, &packet)) < 0) {
+            if ((err_code =av_read_frame(formatCtx, &packet)) < 0) {
                 LOGE("Failed to read frame.\n");
                 check_error(err_code);
                 break;
             }
+            LOGI("packet demux pts=%lld dts=%lld.\n", packet.pts, packet.dts);
             if(packet.stream_index == videoStream){
                 if (decode) {
                     LOGI(
-                            "decode one packet at base time ms=%lld bse pts=%lld.\n",
+                            "decode one packet at base time ms=%lld base pts=%lld.\n",
                             base_time_ms, base_pts
                     )
                     if(!decode_packet(packet, &base_time_ms, &base_pts)) {
                         LOGE(
-                                "failed to decode packet at time=%lld pts=%lld.\n",
+                                "failed to decode packet at base time=%lld base pts=%lld.\n",
                                 base_time_ms, base_pts
                         );
                     }
@@ -459,7 +460,7 @@ public:
                 for (int i = 0; i < destLength; i++) {
                     const char* camera_dest = camera_dests[i];
                     AVFormatContext* oformatCtx = oformatCtxs[i];
-                    if((err_code = av_interleaved_write_frame(oformatCtx, &packet)) < 0) {
+                    if((err_code = av_write_frame(oformatCtx, &packet)) < 0) {
                         LOGE("failed to write frame: %s.\n", camera_dest);
                         check_error(err_code);
                     } else {
@@ -495,40 +496,44 @@ public:
         AVStream* istream = formatCtx->streams[videoStream];
         AVRational ms_rational = av_make_q(1, 1000000);
         int err_code;
+        if ((err_code = avcodec_send_packet(codecCtx, &packet)) < 0) {
+            LOGE("failed to send packet.\n");
+            check_error(err_code);
+            return false;
+        }
         while (true) {
             if ((err_code = avcodec_receive_frame(
                     codecCtx, decodedFrame
             )) < 0) {
-                LOGE("Decode Error.\n");
+                LOGE("failed to receive packet.\n");
                 check_error(err_code);
-                break;
-            } else {
-                if (sync) {
-                    int64_t time_ms_wait = 0;
-                    int64_t time_ms_current = av_gettime();
-                    int64_t time_ms_elapsed = time_ms_current - *base_time_ms;
-                    int64_t time_ms_duration = av_rescale_q(
-                            (packet.pts - *base_pts), istream->time_base, ms_rational
-                    );
-                    LOGI("time duration: %lld.\n", time_ms_duration);
-                    time_ms_wait = time_ms_duration - time_ms_elapsed;
-                    LOGI("time ms elapsed: %lld.\n", time_ms_elapsed);
-                    LOGI("time ms to wait: %lld.\n", time_ms_wait);
-                    if (time_ms_wait > 10000) {
-                        av_usleep(time_ms_wait);
-                    }
-                    if (time_ms_wait < -10000) {
-                        *base_pts = packet.pts;
-                        *base_time_ms = time_ms_current;
-                    }
-                }
-                LOGI("packet pts=%ld dts=%ld.\n", packet.pts, packet.dts);
-                sws_scale(sws_ctx, (const uint8_t *const *) decodedFrame->data,
-                          decodedFrame->linesize, 0, codecCtx->height,
-                          frameRGBA->data, frameRGBA->linesize
-                );
-                applyBitmapCallback();
+                return false;
             }
+            if (sync) {
+                int64_t time_ms_wait = 0;
+                int64_t time_ms_current = av_gettime();
+                int64_t time_ms_elapsed = time_ms_current - *base_time_ms;
+                int64_t time_ms_duration = av_rescale_q(
+                        (packet.pts - *base_pts), istream->time_base, ms_rational
+                );
+                LOGI("time duration: %lld.\n", time_ms_duration);
+                time_ms_wait = time_ms_duration - time_ms_elapsed;
+                LOGI("time ms elapsed: %lld.\n", time_ms_elapsed);
+                LOGI("time ms to wait: %lld.\n", time_ms_wait);
+                if (time_ms_wait > 10000) {
+                    av_usleep(time_ms_wait);
+                }
+                if (time_ms_wait < -10000) {
+                    *base_pts = packet.pts;
+                    *base_time_ms = time_ms_current;
+                }
+            }
+            LOGI("packet after decode pts=%ld dts=%ld.\n", packet.pts, packet.dts);
+            sws_scale(sws_ctx, (const uint8_t *const *) decodedFrame->data,
+                      decodedFrame->linesize, 0, codecCtx->height,
+                      frameRGBA->data, frameRGBA->linesize
+            );
+            applyBitmapCallback();
         }
         return true;
     }
