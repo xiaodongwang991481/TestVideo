@@ -230,6 +230,7 @@ public:
         ocodec->extradata_size= icodec->extradata_size;
 
         // Some formats want stream headers to be separate.
+        ocodec->codec_tag = 0;
         if (ofmt_ctx->oformat->flags & AVFMT_GLOBALHEADER){
             ocodec->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
         }
@@ -237,7 +238,7 @@ public:
 
     void copy_stream_info(AVStream* ostream, AVStream* istream, AVFormatContext* ofmt_ctx){
         ostream->id = istream->id;
-        avcodec_parameters_copy(ostream->codecpar, istream->codecpar);
+        // avcodec_parameters_copy(ostream->codecpar, istream->codecpar);
     }
 
     void copy_video_codec_info(AVCodecContext* ocodec, AVCodecContext* icodec, AVFormatContext* ofmt_ctx) {
@@ -425,6 +426,10 @@ public:
                     check_error(err_code);
                     return false;
                 }
+                if (oformatCtx->pb == NULL) {
+                    LOGE("failed to alloc pb: %s.\n", camera_dest);
+                    return false;
+                }
             } else {
                 LOGI("No need to open avio: %s.\n", camera_dest);
             }
@@ -476,20 +481,11 @@ public:
         for (int i = 0; i < destLength; i++) {
             const char *camera_dest = camera_dests[i];
             AVFormatContext *oformatCtx = oformatCtxs[i];
-            if ((err_code = avformat_init_output(oformatCtx, NULL) < 0)) {
-                LOGE("failed to init output: %s.\n", camera_dest);
+            if ((err_code = avformat_write_header(oformatCtx, NULL)) < 0) {
+                LOGE("failed to write header: %s.\n", camera_dest);
                 check_error(err_code);
-                continue;
-            }
-            if (err_code == AVSTREAM_INIT_IN_WRITE_HEADER) {
-                if ((err_code = avformat_write_header(oformatCtx, NULL)) < 0) {
-                    LOGE("failed to write header: %s.\n", camera_dest);
-                    check_error(err_code);
-                } else {
-                    LOGI("write header to %s.\n", camera_dest);
-                }
-            } else if (err_code == AVSTREAM_INIT_IN_INIT_OUTPUT) {
-                LOGI("output is fully initialized %s.\n", camera_dest);
+            } else {
+                LOGI("write header to %s.\n", camera_dest);
             }
         }
         if ((err_code = av_seek_frame(formatCtx, videoStreamIndex, last_pts, 0)) < 0) {
