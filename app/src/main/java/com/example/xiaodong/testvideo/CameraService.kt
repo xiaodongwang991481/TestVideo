@@ -34,7 +34,7 @@ class CameraService : Service() {
     }
 
     fun processBitmap(camera: Camera, bitmap: Bitmap) {
-        Log.i(LOG_TAG, "process camera $camera callback with bitmap $bitmap")
+        // Log.i(LOG_TAG, "process camera $camera callback with bitmap $bitmap")
     }
 
     @Synchronized fun startBackgroundTasks() {

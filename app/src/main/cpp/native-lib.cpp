@@ -16,6 +16,7 @@ extern "C" {
 #include <libavdevice/avdevice.h>
 #include <libavutil/dict.h>
 #include <libavutil/time.h>
+#include <libavutil/mathematics.h>
 }
 
 #define LOG_TAG "android-ffmpeg"
@@ -264,7 +265,6 @@ public:
         ostream->time_base = istream->time_base;
         ostream->r_frame_rate = istream->r_frame_rate;
         ostream->avg_frame_rate = istream->avg_frame_rate;
-        ostream->duration = istream->duration;
     }
 
     void copy_audio_stream_info(AVStream* ostream, AVStream* istream, AVFormatContext* ofmt_ctx){
@@ -434,7 +434,7 @@ public:
                 LOGI("No need to open avio: %s.\n", camera_dest);
             }
             LOGI("open avio for %s success.\n", camera_dest);
-            AVStream* ostream = avformat_new_stream(oformatCtx, NULL);
+            AVStream* ostream = avformat_new_stream(oformatCtx, pCodec);
             if (ostream == NULL) {
                 LOGE("failed to create stream: %s.\n", camera_dest);
                 return false;
@@ -471,19 +471,23 @@ public:
     }
 
     bool process_packets(int64_t last_pts) {
-        LOGI("process packets with decode=%d sync=%d", decode, sync);
+        LOGI("process packets with decode=%d sync=%d", decode, sync)
+        AVRational ms_rational = av_make_q(1, AV_TIME_BASE);
         AVPacket packet;
         av_init_packet(&packet);
         int64_t base_time_ms = av_gettime();
         int64_t base_pts = last_pts;
         int err_code;
         int destLength = dests.size();
+		vector<bool> destsStatus;
         for (int i = 0; i < destLength; i++) {
             const char *camera_dest = camera_dests[i];
             AVFormatContext *oformatCtx = oformatCtxs[i];
+			destsStatus.push_back(true);
             if ((err_code = avformat_write_header(oformatCtx, NULL)) < 0) {
                 LOGE("failed to write header: %s.\n", camera_dest);
                 check_error(err_code);
+				destsStatus[i] = false;
             } else {
                 LOGI("write header to %s.\n", camera_dest);
             }
@@ -491,16 +495,32 @@ public:
         if ((err_code = av_seek_frame(formatCtx, videoStreamIndex, last_pts, 0)) < 0) {
             LOGE("failed to seek frame at %ld.\n", last_pts);
             check_error(err_code);
-            return last_pts;
+			last_pts = 0;
         }
+		int frame_index = 0;
         while(true){
-            if ((err_code =av_read_frame(formatCtx, &packet)) < 0) {
+            if ((err_code = av_read_frame(formatCtx, &packet)) < 0) {
                 LOGE("Failed to read frame.\n");
                 check_error(err_code);
                 break;
             }
             if(packet.stream_index == videoStreamIndex){
-                LOGV("packet %d demux pts=%ld dts=%ld.\n", codecCtx->frame_number, packet.pts, packet.dts);
+                if(packet.pts==AV_NOPTS_VALUE){
+					//Write PTS  
+					AVRational time_base1 = videoStream->time_base;  
+					//Duration between 2 frames (us)  
+					int64_t calc_duration = av_rescale(
+                            AV_TIME_BASE,
+                            videoStream->r_frame_rate.den,
+                            videoStream->r_frame_rate.num
+                    );
+					//Parameters  
+					packet.pts = av_rescale_q(frame_index * calc_duration, ms_rational, time_base1);
+					packet.dts = packet.pts;  
+					packet.duration = av_rescale_q(calc_duration, ms_rational, time_base1);
+				}
+				frame_index++;
+				LOGV("packet %d demux pts=%ld dts=%ld duration=%ld.\n", codecCtx->frame_number, packet.pts, packet.dts, packet.duration);
                 last_pts = packet.pts;
                 if (decode) {
                     LOGV(
@@ -518,13 +538,46 @@ public:
                     const char* camera_dest = camera_dests[i];
                     AVFormatContext* oformatCtx = oformatCtxs[i];
                     AVCodecContext* ocodecCtx = ocodecCtxs[i];
-                    LOGV("packet %d mux pts=%ld dts=%ld.\n", ocodecCtx->frame_number, packet.pts, packet.dts);
-                    if((err_code = av_write_frame(oformatCtx, &packet)) < 0) {
-                        LOGE("failed to write frame: %s.\n", camera_dest);
-                        check_error(err_code);
-                    } else {
-                        LOGV("write one frame: %s.\n", camera_dest);
-                    }
+					AVStream* ostream = ostreams[i];
+					bool status = destsStatus[i];
+					if (status) {
+						AVPacket opacket;
+						av_init_packet(&opacket);
+						if ((err_code = av_packet_ref(&opacket, &packet)) < 0) {
+							LOGE("failed to get output packet: %s.\n", camera_dest);
+							check_error(err_code);
+							continue;
+						}
+						opacket.pts = av_rescale_q_rnd(
+                                packet.pts, videoStream->time_base, ostream->time_base,
+                                AVRounding(AV_ROUND_NEAR_INF|AV_ROUND_PASS_MINMAX)
+                        );
+						opacket.dts = av_rescale_q_rnd(
+                                packet.dts, videoStream->time_base, ostream->time_base,
+                                AVRounding(AV_ROUND_NEAR_INF|AV_ROUND_PASS_MINMAX)
+                        );
+						opacket.duration = av_rescale_q(
+                                packet.duration, videoStream->time_base, ostream->time_base
+                        );
+                        LOGV(
+                                "packet %d mux pts=%ld dts=%ld duration=%ld.\n",
+                                ocodecCtx->frame_number, opacket.pts, opacket.dts, opacket.duration
+                        );
+						if((err_code = av_interleaved_write_frame(oformatCtx, &opacket)) < 0) {
+							LOGE("failed to write frame: %s.\n", camera_dest);
+							check_error(err_code);
+							destsStatus[i] = false;
+						} else {
+							LOGV("write one frame: %s.\n", camera_dest);
+						}
+                        ocodecCtx->frame_number++;
+						av_packet_unref(&opacket);
+					} else {
+						LOGV(
+                                "ignore send packet to %s since there is some previous fail.\n",
+                                camera_dest
+                        );
+					}
                 }
             } else {
                 LOGV("ignore stream %d.\n", packet.stream_index)
@@ -539,19 +592,23 @@ public:
         for (int i = 0; i < destLength; i++) {
             const char* camera_dest = camera_dests[i];
             AVFormatContext* oformatCtx = oformatCtxs[i];
-            int err_code;
-            if((err_code = av_write_trailer(oformatCtx)) < 0) {
-                LOGE("failed to write trailer: %s.\n", camera_dest);
-                check_error(err_code);
-            } else {
-                LOGI("write trailer: %s.\n", camera_dest);
-            }
+			bool status = destsStatus[i];
+			if (status) {
+				int err_code;
+				if((err_code = av_write_trailer(oformatCtx)) < 0) {
+					LOGE("failed to write trailer: %s.\n", camera_dest);
+					check_error(err_code);
+					destsStatus[i] = false;
+				} else {
+					LOGI("write trailer: %s.\n", camera_dest);
+				}
+			}
         }
         return last_pts;
     }
 
     bool decode_packet(AVPacket& packet, int64_t* base_time_ms, int64_t* base_pts) {
-        AVRational ms_rational = av_make_q(1, 1000000);
+        AVRational ms_rational = av_make_q(1, AV_TIME_BASE);
         int err_code;
         if ((err_code = avcodec_send_packet(codecCtx, &packet)) < 0) {
             if (err_code != EAGAIN) {
@@ -592,7 +649,10 @@ public:
                     *base_time_ms = time_ms_current;
                 }
             }
-            LOGV("packet after decode pts=%ld dts=%ld.\n", packet.pts, packet.dts);
+            LOGV(
+                    "packet after decode pts=%ld dts=%ld duration=%ld.\n",
+                    packet.pts, packet.dts, packet.duration
+            );
             sws_scale(sws_ctx, (const uint8_t *const *) decodedFrame->data,
                       decodedFrame->linesize, 0, codecCtx->height,
                       frameRGBA->data, frameRGBA->linesize
@@ -639,7 +699,7 @@ public:
         if (codecCtx != NULL) {
             LOGI("close codec context.\n");
             avcodec_close(codecCtx);
-            decodedFrame = NULL;
+            codecCtx = NULL;
         }
         LOGI("codec context is closed.\n");
         pCodec = NULL;
@@ -664,16 +724,24 @@ public:
         int destLength = dests.size();
         for (int i = 0; i < destLength; i++) {
             ostreams[i] = NULL;
+			if (ostreams[i] != NULL) {
+				avcodec_close(ocodecCtxs[i]);
+			}
             ocodecCtxs[i] = NULL;
-            if (!(oformatCtxs[i]->flags & AVFMT_NOFILE)) {
-                LOGI("close avio: %d.\n", i);
-                avio_close(oformatCtxs[i]->pb);
-            }
-            LOGI("free output context: %d.\n", i);
-            avformat_free_context(oformatCtxs[i]);
+			if (oformatCtxs[i] != NULL) {
+				if (!(oformatCtxs[i]->flags & AVFMT_NOFILE)) {
+					LOGI("close avio: %d.\n", i);
+					avio_close(oformatCtxs[i]->pb);
+				}
+				LOGI("free output context: %d.\n", i);
+				avformat_free_context(oformatCtxs[i]);
+			}
             oformatCtxs[i] = NULL;
             LOGI("output context %d is freed.\n", i);
-            env->ReleaseStringUTFChars(dests[i], camera_dests[i]);
+			if (camera_dests[i] != NULL) {
+				env->ReleaseStringUTFChars(dests[i], camera_dests[i]);
+			}
+			camera_dests[i] = NULL;
             LOGI("output dest string %d is released.\n", i);
         }
         LOGI("deconstruction is done.\n");
