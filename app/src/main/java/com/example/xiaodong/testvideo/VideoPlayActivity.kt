@@ -90,6 +90,7 @@ class VideoPlayActivity : AppCompatActivity() {
 
     var cameraCallback: CallbackForCamera? = null
     var camera: Camera? = null
+    var last_pts: Long = 0
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
@@ -153,6 +154,7 @@ class VideoPlayActivity : AppCompatActivity() {
             camera?.let {
                 outState.putParcelable("camera", camera)
             }
+            outState.putLong("last_pts", last_pts)
         }
     }
 
@@ -163,7 +165,7 @@ class VideoPlayActivity : AppCompatActivity() {
         }
         camera?.let {
             backgroundTask = backgroundTask ?: VideoProcessTask(
-                    it, cameraCallback
+                    it, cameraCallback, last_pts=last_pts
             ).apply {
                 execute()
             }
@@ -176,7 +178,7 @@ class VideoPlayActivity : AppCompatActivity() {
             it.setFinished()
         }
         backgroundTask?.apply {
-            waitFinish()
+            last_pts = waitFinish()
         }
         backgroundTask = null
     }
@@ -215,6 +217,7 @@ class VideoPlayActivity : AppCompatActivity() {
         camera?.let {
             cameraCallback = CallbackForCamera(it)
         }
+        last_pts = savedInstanceState?.getLong("last_pts") ?: 0
     }
 
     override fun onPostCreate(savedInstanceState: Bundle?) {

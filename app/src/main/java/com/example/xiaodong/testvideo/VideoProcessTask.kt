@@ -7,6 +7,7 @@ import kotlinx.android.synthetic.main.activity_video_play.*
 class VideoProcessTask : AsyncTask<Any, Any, Unit> {
 
     val camera: Camera
+    @Volatile var last_pts: Long = 0
     private val lock = java.lang.Object()
     @Volatile private var finished = false
     private val cameraCallback: CallbackForCamera?
@@ -14,13 +15,14 @@ class VideoProcessTask : AsyncTask<Any, Any, Unit> {
 
     constructor(
             camera: Camera, cameraCallback: CallbackForCamera?=null,
-            copyToDests: Boolean=false) : super() {
+            copyToDests: Boolean=false, last_pts: Long=0) : super() {
         this.camera = camera
         this.cameraCallback = cameraCallback
         this.copyToDests = copyToDests
+        this.last_pts = last_pts
     }
 
-    fun waitFinish() {
+    fun waitFinish() : Long {
         synchronized(lock) {
             Log.i(LOG_TAG, "wait background task finished.")
             while (!finished) {
@@ -28,6 +30,7 @@ class VideoProcessTask : AsyncTask<Any, Any, Unit> {
             }
             Log.i(LOG_TAG, "background task is already finished.")
         }
+        return last_pts
     }
 
     override fun doInBackground(vararg params: Any?): Unit {
@@ -40,13 +43,17 @@ class VideoProcessTask : AsyncTask<Any, Any, Unit> {
             }
             dests = destList.toTypedArray()
         }
-        FFmpeg.getInstance().decode(
-                camera.source, dests, cameraCallback
+        var pts = FFmpeg.getInstance().decode(
+                camera.source, dests, cameraCallback,
+                last_pts
         )
         Log.i(LOG_TAG, "background task is finished.")
         synchronized(lock) {
             Log.i(LOG_TAG, "notify all waits.")
             finished = true
+            if (pts > 0) {
+                last_pts = pts
+            }
             lock.notifyAll()
             Log.i(LOG_TAG, "wait threads are notified.")
         }
