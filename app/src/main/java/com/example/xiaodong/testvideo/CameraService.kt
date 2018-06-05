@@ -1,14 +1,15 @@
 package com.example.xiaodong.testvideo
 
-import android.app.Notification
-import android.app.Service
+import android.app.*
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.Color
+import android.os.Binder
 import android.os.Bundle
 import android.os.IBinder
 import android.util.Log
 import kotlinx.android.synthetic.main.activity_video_play.*
-import android.app.PendingIntent
+import android.os.Build
 import android.support.v4.app.NotificationCompat
 
 
@@ -24,6 +25,25 @@ class CameraService : Service() {
     @Volatile private var cameraCallbacks: ArrayList<CallbackForCamera>? = null
     @Volatile private var cameraTasks: ArrayList<VideoProcessTask>? = null
 
+    private fun startInForeground() {
+        val notificationIntent = Intent(this, MainActivity::class.java)
+        val pendingIntent = PendingIntent.getActivity(
+                this, 0, notificationIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val notification = Notification.Builder(this)
+                .setContentTitle("CameraService")
+                .setContentText("camera service")
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentIntent(pendingIntent)
+                .setTicker("TICKER")
+                .setAutoCancel(false)
+                .setWhen(System.currentTimeMillis())
+                .setChannelId(NOTIFICATION_CHANNEL_ID)
+                .build()
+        startForeground(101, notification)
+    }
+
     inner class CallbackProcessVideo(camera: Camera) : CallbackForCamera(camera) {
         override fun bitmapCallback(bitmap: Bitmap?) {
             super.bitmapCallback(bitmap)
@@ -33,8 +53,16 @@ class CameraService : Service() {
         }
     }
 
+    inner class CameraBinder() : Binder() {
+        fun getStatus(): Boolean {
+            return true
+        }
+    }
+
+    private val binder: IBinder = CameraBinder()
+
     fun processBitmap(camera: Camera, bitmap: Bitmap) {
-        // Log.i(LOG_TAG, "process camera $camera callback with bitmap $bitmap")
+        Log.v(LOG_TAG, "process camera $camera callback with bitmap $bitmap")
     }
 
     @Synchronized fun startBackgroundTasks() {
@@ -83,7 +111,7 @@ class CameraService : Service() {
         reloadCameras(intent)
         stopBackgroundTasks()
         startBackgroundTasks()
-        return null
+        return binder
     }
 
     override fun onCreate() {
@@ -91,15 +119,16 @@ class CameraService : Service() {
         Log.i(LOG_TAG, "create service")
         dbHelper = DBOpenHelper(applicationContext, "my.db", null, 1)
         cameras = getInitialCameraList()
-        val notification = CameraUtil.createNotification(applicationContext)
-        Log.i(LOG_TAG, "send notification=$notification")
-        startForeground(1, notification)
+        createNotificationChannel()
+        startInForeground()
     }
 
     fun reloadCameras(intent: Intent?) {
         intent?.let {
             if (intent.hasExtra("cameras")) {
                 cameras = intent.getParcelableArrayListExtra("cameras")
+            } else {
+                cameras = getInitialCameraList()
             }
         }
     }
@@ -124,7 +153,24 @@ class CameraService : Service() {
         super.onDestroy()
     }
 
+    fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+            val mChannel = NotificationChannel(
+                    NOTIFICATION_CHANNEL_ID, NOTIFICATION_CHANNEL_NAME,
+                    NotificationManager.IMPORTANCE_MAX
+            )
+            mChannel.enableLights(true)
+            // Sets the notification light color for notifications posted to this
+            // channel, if the device supports this feature.
+            mChannel.lightColor = Color.RED
+            notificationManager.createNotificationChannel(mChannel)
+        }
+    }
+
     companion object {
         private val LOG_TAG = "CameraService"
+        private val NOTIFICATION_CHANNEL_ID = "lambda_master"
+        private val NOTIFICATION_CHANNEL_NAME = "lambda_master"
     }
 }

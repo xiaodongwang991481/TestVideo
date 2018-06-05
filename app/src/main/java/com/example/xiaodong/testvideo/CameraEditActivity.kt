@@ -18,6 +18,7 @@ import android.support.v4.app.ActivityCompat.startActivityForResult
 import android.provider.DocumentsContract
 import android.content.ContentResolver
 import android.provider.DocumentsContract.Document.COLUMN_MIME_TYPE
+import android.widget.Toast
 import java.io.File
 import java.net.URI
 
@@ -244,10 +245,18 @@ class CameraEditActivity : AppCompatActivity() {
         Log.i(LOG_TAG, "save camera")
         if (edit_camera_name == null || edit_camera_name.text.isNullOrBlank()) {
             Log.e(LOG_TAG, "camera name is empty")
+            Toast.makeText(
+                    this, "camera name is empty",
+                    Toast.LENGTH_SHORT
+            ).show()
             return
         }
         if (edit_camera_source == null || edit_camera_source.text.isNullOrBlank()) {
             Log.e(LOG_TAG, "camera source is empty")
+            Toast.makeText(
+                    this, "camera source is empty",
+                    Toast.LENGTH_SHORT
+            ).show()
             return
         }
         var cameraName = edit_camera_name.text.toString()
@@ -269,10 +278,19 @@ class CameraEditActivity : AppCompatActivity() {
         Log.i(LOG_TAG, "add camera dest")
         if (camera_dest_name == null || camera_dest_name.text.isNullOrBlank()) {
             Log.e(LOG_TAG, "camera dest name is empty")
+            Toast.makeText(
+                    this, "camera dest name is empty",
+                    Toast.LENGTH_SHORT
+            ).show()
             return
         }
         if (camera_dest_url == null || camera_dest_url.text.isNullOrBlank()) {
             Log.e(LOG_TAG, "camera dest url is empty")
+            Toast.makeText(
+                    this, "camera dest url is empty",
+                    Toast.LENGTH_SHORT
+            ).show()
+            return
         }
         addCameraDest(CameraDest(
                 name=camera_dest_name.text.toString(),
@@ -307,18 +325,26 @@ class CameraEditActivity : AppCompatActivity() {
                         }
                     }
                     REQUEST_UPLOAD_GALLERY_VIDEO -> {
-                        var url = FileManager.getCameraDestUrl(it)
+                        var url = FileManager.getCameraDestUrl(this, it)
                         url?.let {
                             camera_dest_url.setText(it)
                         }
                     }
                     else -> {
                         Log.e(LOG_TAG, "unknown request code $requestCode")
+                        Toast.makeText(
+                                this, "unknown request code $requestCode",
+                                Toast.LENGTH_SHORT
+                        ).show()
                     }
                 }
             }
         } else {
             Log.e(LOG_TAG, "result code = $resultCode")
+            Toast.makeText(
+                    this, "result code = $resultCode",
+                    Toast.LENGTH_SHORT
+            ).show()
         }
     }
 
@@ -338,6 +364,10 @@ class CameraEditActivity : AppCompatActivity() {
         }
         if (!found) {
             Log.e(LOG_TAG, "cameradest ${cameraDest.name} is not found in existing camera dests")
+            Toast.makeText(
+                    this, "cameradest ${cameraDest.name} is not found in existing camera dests",
+                    Toast.LENGTH_SHORT
+            ).show()
         }
         cameraDestAdapter!!.notifyDataSetChanged()
     }

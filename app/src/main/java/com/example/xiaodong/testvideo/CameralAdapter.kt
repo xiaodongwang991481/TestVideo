@@ -43,6 +43,6 @@ class CameraAdapter(val context: MainActivity, val cameras: ArrayList<Camera>) :
         itemName.setText(currentItem.name)
         val deleteItem: Button = view.findViewById(R.id.delete_camera)!!
         deleteItem.setOnClickListener(DeleteCamera(currentItem))
-         return view
+        return view
     }
 }

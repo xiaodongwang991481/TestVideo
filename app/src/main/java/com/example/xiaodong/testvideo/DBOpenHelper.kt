@@ -57,98 +57,72 @@ class DBOpenHelper(
                     "camera", null, null,
                     null, null, null, null
             )
-            try {
-                while (cursor.moveToNext()) {
-                    var name = cursor.getString(cursor.getColumnIndex("name"))
-                    var source = cursor.getString(cursor.getColumnIndex("source"))
-                    var sourcePropertyCursor = db.query(
-                            "camera_source_property", null, "camera_name=?",
-                            arrayOf(name), null, null, null
-                    )
-                    var sourceProperties = ArrayList<CameraSourceProperty>()
-                    try {
-                        while (sourcePropertyCursor.moveToNext()) {
-                            var sourcePropertyName = sourcePropertyCursor.getString(
-                                    sourcePropertyCursor.getColumnIndex("name")
+            while (cursor.moveToNext()) {
+                var name = cursor.getString(cursor.getColumnIndex("name"))
+                var source = cursor.getString(cursor.getColumnIndex("source"))
+                var sourcePropertyCursor = db.query(
+                        "camera_source_property", null, "camera_name=?",
+                        arrayOf(name), null, null, null
+                )
+                var sourceProperties = ArrayList<CameraSourceProperty>()
+                while (sourcePropertyCursor.moveToNext()) {
+                        var sourcePropertyName = sourcePropertyCursor.getString(
+                                sourcePropertyCursor.getColumnIndex("name")
+                        )
+                        var sourcePropertyValue = sourcePropertyCursor.getString(
+                                sourcePropertyCursor.getColumnIndex("value")
+                        )
+                        sourceProperties.add(CameraSourceProperty(
+                                name=sourcePropertyName,
+                                value=sourcePropertyValue
+                        ))
+                    }
+                sourcePropertyCursor.close()
+                var destCursor = db.query(
+                        "camera_dest", null, "camera_name=?",
+                        arrayOf(name), null, null, null
+                )
+                var dests = ArrayList<CameraDest>()
+                while (destCursor.moveToNext()) {
+                        var destName = destCursor.getString(destCursor.getColumnIndex("name"))
+                        var destUrl = destCursor.getString(destCursor.getColumnIndex("url"))
+                        var destPropertyCursor = db.query(
+                                "camera_dest_property", null,
+                                "dest_name=? and camera_name=?",
+                                arrayOf(destName, name), null, null, null
+                        )
+                        var destProperties = ArrayList<CameraDestProperty>()
+                        while (destPropertyCursor.moveToNext()) {
+                            var destPropertyName = destPropertyCursor.getString(
+                                    destPropertyCursor.getColumnIndex("name")
                             )
-                            var sourcePropertyValue = sourcePropertyCursor.getString(
-                                    sourcePropertyCursor.getColumnIndex("value")
+                            var destPropertyValue = destPropertyCursor.getString(
+                                    destPropertyCursor.getColumnIndex("value")
                             )
-                            sourceProperties.add(CameraSourceProperty(
-                                    name=sourcePropertyName,
-                                    value=sourcePropertyValue
+                            destProperties.add(CameraDestProperty(
+                                    name = destPropertyName,
+                                    value = destPropertyValue
                             ))
                         }
-                    } catch (e: Exception) {
-                        Log.e(LOG_TAG, e.message)
-                        throw e
-                    } finally {
-                        sourcePropertyCursor.close()
+                        destPropertyCursor.close()
+                        dests.add(CameraDest(
+                                name = destName,
+                                url = destUrl,
+                                dest_properties = destProperties
+                        ))
                     }
-                    var destCursor = db.query(
-                            "camera_dest", null, "camera_name=?",
-                            arrayOf(name), null, null, null
-                    )
-                    var dests = ArrayList<CameraDest>()
-                    try {
-                        while (destCursor.moveToNext()) {
-                            var destName = destCursor.getString(destCursor.getColumnIndex("name"))
-                            var destUrl =  destCursor.getString(destCursor.getColumnIndex("url"))
-                            var destPropertyCursor = db.query(
-                                    "camera_dest_property", null,
-                                    "dest_name=? and camera_name=?",
-                                    arrayOf(destName, name), null, null, null
-                            )
-                            var destProperties = ArrayList<CameraDestProperty>()
-                            try {
-                                while (destPropertyCursor.moveToNext()) {
-                                    var destPropertyName = destPropertyCursor.getString(
-                                            destPropertyCursor.getColumnIndex("name")
-                                    )
-                                    var destPropertyValue = destPropertyCursor.getString(
-                                            destPropertyCursor.getColumnIndex("value")
-                                    )
-                                    destProperties.add(CameraDestProperty(
-                                            name = destPropertyName,
-                                            value = destPropertyValue
-                                    ))
-                                }
-                            } catch (e: Exception) {
-                                Log.e(LOG_TAG, e.message)
-                                throw e
-                            } finally {
-                                destPropertyCursor.close()
-                            }
-                            dests.add(CameraDest(
-                                    name=destName,
-                                    url=destUrl,
-                                    dest_properties=destProperties
-                            ))
-                        }
-                    } catch (e: Exception) {
-                        Log.e(LOG_TAG, e.message)
-                        throw e
-                    } finally {
-                        destCursor.close()
-                    }
-                    cameras.add(Camera(
-                            name = name, source = source,
-                            source_properties = sourceProperties,
-                            dests = dests))
-                }
-            } catch (e: Exception) {
-                Log.e(LOG_TAG, e.message)
-                throw e
+                destCursor.close()
+                cameras.add(Camera(
+                        name = name, source = source,
+                        source_properties = sourceProperties,
+                        dests = dests))
             }
-            finally {
-                cursor.close()
-            }
+            cursor.close()
             db.setTransactionSuccessful()
         } catch (e: Exception) {
             Log.e(LOG_TAG, e.message)
         } finally {
             db.endTransaction()
-
             db.close()
         }
         return cameras

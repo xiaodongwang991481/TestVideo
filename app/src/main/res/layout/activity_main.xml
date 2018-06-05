@@ -48,11 +48,5 @@
             android:layout_height="wrap_content"
             android:clickable="true"
             android:text="@string/stop_service" />
-        <Button
-            android:id="@+id/try_notification"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:clickable="true"
-            android:text="Test Notification" />
     </LinearLayout>
 </ScrollView>

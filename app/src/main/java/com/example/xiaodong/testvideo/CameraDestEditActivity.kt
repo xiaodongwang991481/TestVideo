@@ -11,6 +11,7 @@ import android.os.PersistableBundle
 import android.provider.DocumentsContract
 import android.view.View
 import android.widget.AdapterView
+import android.widget.Toast
 import kotlinx.android.synthetic.main.activity_camera_dest_edit.*
 import kotlinx.android.synthetic.main.activity_camera_edit.*
 
@@ -82,9 +83,16 @@ class CameraDestEditActivity : AppCompatActivity() {
             cameraDestProperties = ArrayList()
         }
         cameraDestPropertyAdapter = CameraDestPropertyAdapter(this, cameraDestProperties!!)
-        var header = layoutInflater.inflate(R.layout.camera_dest_property_header, camera_dest_properties, false) as View
+        var header = layoutInflater.inflate(
+                R.layout.camera_dest_property_header,
+                camera_dest_properties, false
+        ) as View
         camera_dest_properties.addHeaderView(header)
-        var footer = layoutInflater.inflate(R.layout.listview_footer, camera_dest_properties, false) as View
+        var footer = layoutInflater.inflate(
+                R.layout.listview_footer,
+                camera_dest_properties,
+                false
+        ) as View
         camera_dest_properties.addFooterView(footer)
         camera_dest_properties.setAdapter(cameraDestPropertyAdapter!!)
         add_camera_dest_property.setOnClickListener(AddCameraDestProperty())
@@ -134,28 +142,44 @@ class CameraDestEditActivity : AppCompatActivity() {
             data?.let {
                 when (requestCode) {
                     REQUEST_UPLOAD_GALLERY_VIDEO -> {
-                        var url = FileManager.getCameraDestUrl( it)
+                        var url = FileManager.getCameraDestUrl(this, it)
                         url?.let {
                             edit_camera_dest_url.setText(it)
                         }
                     }
                     else -> {
                         Log.e(LOG_TAG, "unknown request code $requestCode")
+                        Toast.makeText(
+                                this, "unknown request code $requestCode",
+                                Toast.LENGTH_SHORT
+                        ).show()
                     }
                 }
             }
         } else {
             Log.e(LOG_TAG, "result code = $resultCode")
+            Toast.makeText(
+                    this, "result code = $resultCode",
+                    Toast.LENGTH_SHORT
+            ).show()
         }
     }
 
     fun onButtonClickSave() {
         if (edit_camera_dest_name == null || edit_camera_dest_name.text.isNullOrBlank()) {
             Log.e(LOG_TAG, "camera dest name is empty")
+            Toast.makeText(
+                    this, "camera dest name is empty",
+                    Toast.LENGTH_SHORT
+            ).show()
             return
         }
         if (edit_camera_dest_url == null || edit_camera_dest_url.text.isNullOrBlank()) {
             Log.e(LOG_TAG, "camera dest url is empty")
+            Toast.makeText(
+                    this, "camera dest url is empty",
+                    Toast.LENGTH_SHORT
+            ).show()
             return
         }
         var cameraDestName = edit_camera_dest_name.text.toString()
@@ -179,6 +203,10 @@ class CameraDestEditActivity : AppCompatActivity() {
                 add_camera_dest_property_name.text.isNullOrBlank()
         ) {
             Log.e(LOG_TAG, "camera dest property name is empty")
+            Toast.makeText(
+                    this, "camera dest property name is empty",
+                    Toast.LENGTH_SHORT
+            ).show()
             return
         }
         if (
@@ -186,6 +214,10 @@ class CameraDestEditActivity : AppCompatActivity() {
                 add_camera_dest_property_value.text.isNullOrBlank()
         ) {
             Log.e(LOG_TAG, "camera dest property value is empty")
+            Toast.makeText(
+                    this, "camera dest property value is empty",
+                    Toast.LENGTH_SHORT
+            ).show()
             return
         }
         addCameraDestProperty(

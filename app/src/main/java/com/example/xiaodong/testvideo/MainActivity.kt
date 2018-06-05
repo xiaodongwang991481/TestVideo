@@ -19,6 +19,7 @@ import android.app.NotificationManager
 import android.app.TaskStackBuilder
 import android.content.Context
 import android.support.v4.app.NotificationCompat
+import android.widget.Toast
 
 
 class MainActivity : AppCompatActivity() {
@@ -56,7 +57,13 @@ class MainActivity : AppCompatActivity() {
         override fun onClick(v: View?) {
             val intent = Intent(this@MainActivity, CameraService::class.java)
             Log.i(LOG_TAG, "start service")
-            startService(intent)
+            if(startForegroundService(intent) == null) {
+                Log.e(LOG_TAG, "failed to start service")
+                Toast.makeText(
+                        this@MainActivity, "failed to start service",
+                        Toast.LENGTH_SHORT
+                ).show()
+            }
 
         }
     }
@@ -65,17 +72,13 @@ class MainActivity : AppCompatActivity() {
         override fun onClick(v: View?) {
             val intent = Intent(this@MainActivity, CameraService::class.java)
             Log.i(LOG_TAG, "stop service")
-            stopService(intent)
-        }
-    }
-
-    inner class TryNotification : View.OnClickListener {
-        override fun onClick(v: View?) {
-            val notification = CameraUtil.createNotification(applicationContext)
-            val notificationManager = getSystemService(
-                    Context.NOTIFICATION_SERVICE
-            ) as NotificationManager
-            notificationManager.notify(1, notification)
+            if(!stopService(intent)) {
+                Log.e(LOG_TAG, "failed to stop service")
+                Toast.makeText(
+                        this@MainActivity, "failed to stop service",
+                        Toast.LENGTH_SHORT
+                ).show()
+            }
         }
     }
 
@@ -107,13 +110,12 @@ class MainActivity : AppCompatActivity() {
         save_cameras.setOnClickListener(SaveCameras())
         start_service.setOnClickListener(StartService())
         stop_service.setOnClickListener(StopService())
-        try_notification.setOnClickListener(TryNotification())
     }
 
     fun onButtonClickAdd() {
         Log.i(LOG_TAG, "add camera")
         val intent = Intent(this, CameraEditActivity::class.java)
-        this.startActivityForResult(intent, 1)
+        this.startActivityForResult(intent, com.example.xiaodong.testvideo.MainActivity.REQUEST_ADD_CAMERA)
     }
 
     fun onButtonClickSave() {
@@ -179,6 +181,10 @@ class MainActivity : AppCompatActivity() {
         }
         if (!found) {
             Log.e(LOG_TAG, "camera ${camera.name} is not found in existing cameras")
+            Toast.makeText(
+                    this, "camera ${camera.name} is not found in existing cameras",
+                    Toast.LENGTH_SHORT
+            ).show()
         }
         camerasAdapter!!.notifyDataSetChanged()
     }
@@ -199,15 +205,23 @@ class MainActivity : AppCompatActivity() {
             data?.let {
                 val camera: Camera = it.getParcelableExtra("camera") as Camera
                 when (requestCode) {
-                    0 -> updateCamera(camera)
-                    1 -> addCamera(camera)
+                    REQUEST_UPDATE_CAMERA -> updateCamera(camera)
+                    REQUEST_ADD_CAMERA -> addCamera(camera)
                     else -> {
                         Log.e(LOG_TAG, "unknown request code $requestCode")
+                        Toast.makeText(
+                                this, "unknown request code $requestCode",
+                                Toast.LENGTH_SHORT
+                        ).show()
                     }
                 }
             }
         } else {
             Log.e(LOG_TAG, "result code = $resultCode")
+            Toast.makeText(
+                    this, "result code = $resultCode",
+                    Toast.LENGTH_SHORT
+            ).show()
         }
     }
 
@@ -215,7 +229,7 @@ class MainActivity : AppCompatActivity() {
         Log.i(LOG_TAG, " edit camera $camera")
         val intent = Intent(this, CameraEditActivity::class.java)
         intent.putExtra("camera", camera)
-        this.startActivityForResult(intent, 0)
+        this.startActivityForResult(intent, REQUEST_UPDATE_CAMERA)
     }
 
     fun onButtonClickDelete(camera: Camera) {
@@ -242,17 +256,12 @@ class MainActivity : AppCompatActivity() {
                     Manifest.permission.CAMERA,
                     Manifest.permission.READ_EXTERNAL_STORAGE,
                     Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                    Manifest.permission.ACCESS_NOTIFICATION_POLICY,
-                    Manifest.permission.BIND_NOTIFICATION_LISTENER_SERVICE,
                     Manifest.permission.INSTALL_PACKAGES,
                     Manifest.permission.INTERNET,
-                    Manifest.permission.BIND_REMOTEVIEWS,
-                    Manifest.permission.CAPTURE_VIDEO_OUTPUT,
-                    Manifest.permission.STATUS_BAR,
-                    Manifest.permission.EXPAND_STATUS_BAR,
-                    Manifest.permission.BIND_TEXT_SERVICE
+                    Manifest.permission.CAPTURE_VIDEO_OUTPUT
+
             )) {
-                Log.d("permission", "permission denied to $permission - requesting it")
+                Log.i("permission", "permission denied to $permission - requesting it")
                 permissions.add(permission)
 
             }
@@ -263,6 +272,8 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private val PERMISSION_REQUEST_CODE = 1
         private val LOG_TAG = "mainActivity"
+        private val REQUEST_UPDATE_CAMERA = 1
+        private val REQUEST_ADD_CAMERA = 2
     }
 
 }

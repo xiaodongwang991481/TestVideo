@@ -8,6 +8,7 @@ import android.provider.DocumentsContract
 import android.provider.MediaStore
 import android.util.Log
 import android.os.Environment.getExternalStorageDirectory
+import android.widget.Toast
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -46,6 +47,10 @@ class FileManager {
                 return selectedImagePath
             } ?: let {
                 Log.e(LOG_TAG, "failed to get source Uri")
+                Toast.makeText(
+                        context, "failed to get source uri",
+                        Toast.LENGTH_SHORT
+                ).show()
             }
             return null
         }
@@ -62,7 +67,7 @@ class FileManager {
             return path
         }
 
-        public fun getCameraDestUrl(data: Intent?) : String? {
+        public fun getCameraDestUrl(context: Context, data: Intent?) : String? {
             val selectedDir = data?.getData()
             Log.i(LOG_TAG, "selected dir: $selectedDir")
             selectedDir?.let {
@@ -73,6 +78,10 @@ class FileManager {
                 return selectedPath + "/" + filename + ".mp4"
             } ?: let {
                 Log.e(LOG_TAG, "failed to get dest Uri")
+                Toast.makeText(
+                        context, "failed to get dest uri",
+                        Toast.LENGTH_SHORT
+                ).show()
             }
             return null
         }

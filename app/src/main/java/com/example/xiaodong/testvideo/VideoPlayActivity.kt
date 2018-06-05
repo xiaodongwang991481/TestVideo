@@ -24,6 +24,7 @@ import android.content.ContentResolver
 import android.content.Context
 import android.graphics.*
 import android.os.Environment
+import android.widget.Toast
 import kotlinx.android.synthetic.main.cameras_layout.*
 
 
@@ -104,9 +105,17 @@ class VideoPlayActivity : AppCompatActivity() {
                 }
             } else {
                 Log.e(LOG_TAG, "unkown request code: $requestCode")
+                Toast.makeText(
+                        this, "unkown request code: $requestCode",
+                        Toast.LENGTH_SHORT
+                ).show()
             }
         } else {
-            Log.e(LOG_TAG, "failed to get activity result")
+            Log.e(LOG_TAG, "result code = $resultCode")
+            Toast.makeText(
+                    this, "result code = $resultCode",
+                    Toast.LENGTH_SHORT
+            ).show()
         }
     }
 
