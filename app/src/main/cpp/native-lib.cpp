@@ -41,8 +41,8 @@ class CameraStreamHolder {
 	string camera_source;
     jobjectArray dests;
     jobject sourceProperties;
-    jobjectArray destsProperties;
 	vector<string> camera_dests;
+    jobjectArray destsProperties;
     map<string, string> camera_source_properties;
     vector<map<string, string> > camera_dests_properties;
     vector<AVFormatContext*> oformatCtxs;
@@ -80,7 +80,7 @@ public:
         const char* camera_source_str = env->GetStringUTFChars(source, NULL);
         camera_source = string(camera_source_str, strlen(camera_source_str));
         env->ReleaseStringUTFChars(source, camera_source_str);
-        LOGI("create camera holder source: %s.\n", camera_source);
+        LOGI("create camera holder source: %s.\n", camera_source.c_str());
         if (!env->IsSameObject(callback, NULL)) {
             this->callback = env->NewGlobalRef(callback);
             decode = true;
@@ -91,7 +91,7 @@ public:
         const char* camera_source_str = env->GetStringUTFChars(source, NULL);
         camera_source = string(camera_source_str, strlen(camera_source_str));
         env->ReleaseStringUTFChars(source, camera_source_str);
-        LOGI("create camera holder source: %s.\n", camera_source);
+        LOGI("create camera holder source: %s.\n", camera_source.c_str());
         if (!env->IsSameObject(callback, NULL)) {
             this->callback = env->NewGlobalRef(callback);
             decode = true;
@@ -115,7 +115,10 @@ public:
                 const char *camera_dest_str = env->GetStringUTFChars(dest, NULL);
                 string camera_dest(camera_dest_str, strlen(camera_dest_str));
                 env->ReleaseStringUTFChars(dest, camera_dest_str);
-                LOGI("create camer dest %s for source %s.\n", camera_dest, camera_source);
+                LOGI(
+                        "create camer dest %s for source %s.\n",
+                        camera_dest.c_str(), camera_source.c_str()
+                );
                 camera_dests.push_back(camera_dest);
                 oformatCtxs.push_back(NULL);
                 ocodecCtxs.push_back(NULL);
@@ -205,7 +208,7 @@ public:
     }
 
     bool getSourceProperties() {
-        return convertMap(camera_source_properties, sourceProperties)
+        return convertMap(camera_source_properties, sourceProperties);
     }
 
     bool getDestsProperties() {
@@ -222,7 +225,7 @@ public:
                     return false;
                 }
                 map<string, string> camera_dest_properties;
-                if(!convertMap(camera_dest_properties, dest_properties) {
+                if(!convertMap(camera_dest_properties, dest_properties)) {
                     return false;
                 }
                 camera_dests_properties.push_back(camera_dest_properties);
@@ -248,7 +251,7 @@ public:
     }
 
     void applyBitmapCallback() {
-        LOGV("apply bitmap callback on %s.\n", camera_source);
+        LOGV("apply bitmap callback on %s.\n", camera_source.c_str());
         if (env->IsSameObject(callback, NULL)) {
             LOGE("callback is NULL.\n");
             return;
@@ -276,7 +279,7 @@ public:
     }
 
     bool applyFinishCallback() {
-        LOGV("apply finish callback on %s.\n", camera_source);
+        LOGV("apply finish callback on %s.\n", camera_source.c_str());
         if (env->IsSameObject(callback, NULL)) {
             LOGE("callback is NULL");
             return true;
@@ -445,32 +448,29 @@ public:
             LOGE("failed to setup dests properties");
             return false;
         }
-		const char* content_prefix = "content:";
-		int camera_source_len = strlen(camera_source);
-		int content_prefix_len = strlen(content_prefix);
-		if (
-		    camera_source_len >= content_prefix_len &&
-			strncmp (camera_source, content_prefix, content_prefix_len) == 0
-		) {
+		if (camera_source.rfind("content:", 0) == 0) {
 			inputFormat = av_find_input_format("v4l2");
 		}
+        if (camera_source_properties.find("input_format") != camera_source_properties.end()) {
+            inputFormat = av_find_input_format(camera_source_properties["input_format"].c_str());
+        }
         // Open video file
         int err_code;
-        if((err_code=avformat_open_input(&formatCtx, camera_source, inputFormat, &options)) < 0){
-            LOGE("Couldn't open input %s.\n", camera_source);
+        if((err_code=avformat_open_input(&formatCtx, camera_source.c_str(), inputFormat, &options)) < 0){
+            LOGE("Couldn't open input %s.\n", camera_source.c_str());
             check_error(err_code);
             return false;
         }
-        LOGI("camera input %s is opened.\n", camera_source);
+        LOGI("camera input %s is opened.\n", camera_source.c_str());
         // Retrieve stream information
         if((err_code=avformat_find_stream_info(formatCtx, NULL)) < 0){
-            LOGE("FAILED to find stream info %s.\n", camera_source);
+            LOGE("FAILED to find stream info %s.\n", camera_source.c_str());
             check_error(err_code);
             return false; // Couldn't find stream information
         }
-        LOGI("read camera %s stream info success.\n", camera_source);
+        LOGI("read camera %s stream info success.\n", camera_source.c_str());
         // Dump information about file onto standard error
-        av_dump_format(formatCtx, 0, camera_source, 0);
+        av_dump_format(formatCtx, 0, camera_source.c_str(), 0);
         err_code = av_find_best_stream(formatCtx, AVMEDIA_TYPE_VIDEO, -1, -1, &pCodec, 0);
         if (err_code < 0) {
             LOGE("Didn't find a video stream.\n");
@@ -563,53 +563,53 @@ public:
         LOGI("got sws context.\n");
         int destLength = camera_dests.size();
         for (int i = 0; i < destLength; i++) {
-            const char* camera_dest = camera_dests[i];
+            string& camera_dest = camera_dests[i];
             if((err_code = avformat_alloc_output_context2(
-                    &oformatCtxs[i], NULL, "flv", camera_dest)
+                    &oformatCtxs[i], NULL, "flv", camera_dest.c_str())
                ) < 0) {
-                LOGE("oformatCtx %s is failed to alloc.\n", camera_dest);
+                LOGE("oformatCtx %s is failed to alloc.\n", camera_dest.c_str());
                 check_error(err_code);
                 return false;
             }
-            LOGI("alloc output context for %s.\n", camera_dest);
+            LOGI("alloc output context for %s.\n", camera_dest.c_str());
             AVFormatContext* oformatCtx = oformatCtxs[i];
             if (!(oformatCtx->flags & AVFMT_NOFILE)) {
                 if ((err_code = avio_open2(
-                        &(oformatCtx->pb), camera_dest,
+                        &(oformatCtx->pb), camera_dest.c_str(),
                         AVIO_FLAG_WRITE, &(oformatCtx->interrupt_callback), NULL
                 )) < 0) {
-                    LOGE("failed to open AVIO: %s.\n", camera_dest);
+                    LOGE("failed to open AVIO: %s.\n", camera_dest.c_str());
                     check_error(err_code);
                     return false;
                 }
                 if (oformatCtx->pb == NULL) {
-                    LOGE("failed to alloc pb: %s.\n", camera_dest);
+                    LOGE("failed to alloc pb: %s.\n", camera_dest.c_str());
                     return false;
                 }
             } else {
-                LOGI("No need to open avio: %s.\n", camera_dest);
+                LOGI("No need to open avio: %s.\n", camera_dest.c_str());
             }
-            LOGI("open avio for %s success.\n", camera_dest);
+            LOGI("open avio for %s success.\n", camera_dest.c_str());
             AVStream* ostream = avformat_new_stream(oformatCtx, pCodec);
             if (ostream == NULL) {
-                LOGE("failed to create stream: %s.\n", camera_dest);
+                LOGE("failed to create stream: %s.\n", camera_dest.c_str());
                 return false;
             }
             ostreams[i] = ostream;
             AVCodecContext* ocodecCtx = ostream->codec;
             ocodecCtxs[i] = ocodecCtx;
             if (ocodecCtx == NULL) {
-                LOGE("failed to get output codec context for %s.\n", camera_dest);
+                LOGE("failed to get output codec context for %s.\n", camera_dest.c_str());
                 return false;
             }
-            LOGI("open oput stream for %s success.\n", camera_dest);
+            LOGI("open oput stream for %s success.\n", camera_dest.c_str());
             if ((err_code = avcodec_copy_context(ocodecCtx, codecCtx)) < 0) {
-                LOGE("failed to copy codec context to %s.\n", camera_dest);
+                LOGE("failed to copy codec context to %s.\n", camera_dest.c_str());
                 check_error(err_code);
                 return false;
             }
             copy_video_stream_info(ostream, videoStream, oformatCtx);
-            av_dump_format(oformatCtx, 0, camera_dest, 1);
+            av_dump_format(oformatCtx, 0, camera_dest.c_str(), 1);
         }
         if ((err_code = AndroidBitmap_lockPixels(env, bitmap, &buffer)) < 0) {
             LOGE("failed to lock pixels.\n");
@@ -637,15 +637,15 @@ public:
         int destLength = camera_dests.size();
 		vector<bool> destsStatus;
         for (int i = 0; i < destLength; i++) {
-            const char *camera_dest = camera_dests[i];
+            string& camera_dest = camera_dests[i];
             AVFormatContext *oformatCtx = oformatCtxs[i];
 			destsStatus.push_back(true);
             if ((err_code = avformat_write_header(oformatCtx, NULL)) < 0) {
-                LOGE("failed to write header: %s.\n", camera_dest);
+                LOGE("failed to write header: %s.\n", camera_dest.c_str());
                 check_error(err_code);
 				destsStatus[i] = false;
             } else {
-                LOGI("write header to %s.\n", camera_dest);
+                LOGI("write header to %s.\n", camera_dest.c_str());
             }
         }
         if ((err_code = av_seek_frame(formatCtx, videoStreamIndex, last_pts, 0)) < 0) {
@@ -676,7 +676,10 @@ public:
 					packet.duration = av_rescale_q(calc_duration, ms_rational, time_base1);
 				}
 				frame_index++;
-				LOGV("packet %d demux pts=%ld dts=%ld duration=%ld.\n", codecCtx->frame_number, packet.pts, packet.dts, packet.duration);
+				LOGV(
+                        "packet %d demux pts=%ld dts=%ld duration=%ld.\n",
+                        codecCtx->frame_number, packet.pts, packet.dts, packet.duration
+                );
                 last_pts = packet.pts;
                 if (decode) {
                     LOGV(
@@ -691,7 +694,7 @@ public:
                     }
                 }
                 for (int i = 0; i < destLength; i++) {
-                    const char* camera_dest = camera_dests[i];
+                    string& camera_dest = camera_dests[i];
                     AVFormatContext* oformatCtx = oformatCtxs[i];
                     AVCodecContext* ocodecCtx = ocodecCtxs[i];
 					AVStream* ostream = ostreams[i];
@@ -700,7 +703,7 @@ public:
 						AVPacket opacket;
 						av_init_packet(&opacket);
 						if ((err_code = av_packet_ref(&opacket, &packet)) < 0) {
-							LOGE("failed to get output packet: %s.\n", camera_dest);
+							LOGE("failed to get output packet: %s.\n", camera_dest.c_str());
 							check_error(err_code);
 							continue;
 						}
@@ -720,18 +723,18 @@ public:
                                 ocodecCtx->frame_number, opacket.pts, opacket.dts, opacket.duration
                         );
 						if((err_code = av_interleaved_write_frame(oformatCtx, &opacket)) < 0) {
-							LOGE("failed to write frame: %s.\n", camera_dest);
+							LOGE("failed to write frame: %s.\n", camera_dest.c_str());
 							check_error(err_code);
 							destsStatus[i] = false;
 						} else {
-							LOGV("write one frame: %s.\n", camera_dest);
+							LOGV("write one frame: %s.\n", camera_dest.c_str());
 						}
                         ocodecCtx->frame_number++;
 						av_packet_unref(&opacket);
 					} else {
 						LOGV(
                                 "ignore send packet to %s since there is some previous fail.\n",
-                                camera_dest
+                                camera_dest.c_str()
                         );
 					}
                 }
@@ -746,17 +749,17 @@ public:
             }
         }
         for (int i = 0; i < destLength; i++) {
-            const char* camera_dest = camera_dests[i];
+            string& camera_dest = camera_dests[i];
             AVFormatContext* oformatCtx = oformatCtxs[i];
 			bool status = destsStatus[i];
 			if (status) {
 				int err_code;
 				if((err_code = av_write_trailer(oformatCtx)) < 0) {
-					LOGE("failed to write trailer: %s.\n", camera_dest);
+					LOGE("failed to write trailer: %s.\n", camera_dest.c_str());
 					check_error(err_code);
 					destsStatus[i] = false;
 				} else {
-					LOGI("write trailer: %s.\n", camera_dest);
+					LOGI("write trailer: %s.\n", camera_dest.c_str());
 				}
 			}
         }
@@ -819,7 +822,7 @@ public:
     }
 
     ~CameraStreamHolder() {
-        LOGI("destruct camera holder %s.\n", camera_source);
+        LOGI("destruct camera holder %s.\n", camera_source.c_str());
         if (!env->IsSameObject(callback, NULL)) {
             env->DeleteGlobalRef(callback);
         }
@@ -860,6 +863,7 @@ public:
         LOGI("codec context is closed.\n");
         pCodec = NULL;
         videoStream = NULL;
+        inputFormat = NULL;
         if (formatCtx != NULL) {
             LOGI("close format input.\n");
             avformat_close_input(&formatCtx);
@@ -903,9 +907,11 @@ Java_com_example_xiaodong_testvideo_FFmpeg_decode(
         jstring source,
         jobjectArray dests,
         jobject callback,
+        jobject sourceProperties,
+        jobjectArray destsProperties,
         jlong last_pts
 ) {
-    CameraStreamHolder holder(env, source, dests, callback);
+    CameraStreamHolder holder(env, source, dests, callback, sourceProperties, destsProperties);
     if(!holder.init()) {
         return -1;
     }

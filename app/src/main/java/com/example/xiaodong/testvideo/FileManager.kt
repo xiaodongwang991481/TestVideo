@@ -65,7 +65,7 @@ class FileManager {
         val selectedImageUri = data?.getData()
         Log.i(LOG_TAG, "selected image uri: $selectedImageUri")
         if (selectedImageUri != null) {
-            val selectedImagePath = getUriRealPath(selectedImageUri!!)
+            val selectedImagePath = getUriRealPath(selectedImageUri)
             Log.i(LOG_TAG, "selected image $selectedImagePath from $selectedImagePath")
             return selectedImagePath
         } else {
