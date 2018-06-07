@@ -31,6 +31,7 @@ class CameraEditActivity : AppCompatActivity() {
     var childIndicatorWidth: Int = 50
     private var cameraDestAdapter: CameraDestAdapter? = null
     private var cameraSourcePropertyAdapter: CameraSourcePropertyAdapter? = null
+    private var fileManager: FileManager? = null
 
     inner class SaveCamera : View.OnClickListener {
         override fun onClick(v: View?) {
@@ -319,13 +320,13 @@ class CameraEditActivity : AppCompatActivity() {
                     REQUEST_UPDATE_CAMERA_DEST -> updateCameraDest(cameraDest!!)
                     REQUEST_ADD_CAMERA_DEST -> addCameraDest(cameraDest!!)
                     REQUEST_TAKE_GALLERY_VIDEO -> {
-                        var source = FileManager.getCameraSource(this, it)
+                        var source = fileManager!!.getCameraSource(it)
                         source?.let {
                             edit_camera_source.setText(it)
                         }
                     }
                     REQUEST_UPLOAD_GALLERY_VIDEO -> {
-                        var url = FileManager.getCameraDestUrl(this, it)
+                        var url = fileManager!!.getCameraDestUrl(it)
                         url?.let {
                             camera_dest_url.setText(it)
                         }

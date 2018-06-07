@@ -55,6 +55,8 @@ class VideoPlayActivity : AppCompatActivity() {
     }
     private var mVisible: Boolean = false
     private val mHideRunnable = Runnable { hide() }
+    private var fileManager: FileManager? = null
+
     /**
      * Touch listener to use for in-layout UI controls to delay hiding the
      * system UI. This is to prevent the jarring behavior of controls going away
@@ -97,7 +99,7 @@ class VideoPlayActivity : AppCompatActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (resultCode == Activity.RESULT_OK) {
             if (requestCode == REQUEST_TAKE_GALLERY_VIDEO) {
-                var source = FileManager.getCameraSource(this, data)
+                var source = fileManager!!.getCameraSource(data)
                 source?.let {
                     camera!!.source = source
                     stopBackgroundTask()
@@ -152,6 +154,7 @@ class VideoPlayActivity : AppCompatActivity() {
         // operations to prevent the jarring behavior of controls going away
         // while interacting with the UI.
         select_video.setOnClickListener(SelectVideo())
+        fileManager = FileManager(this)
     }
 
     override fun onSaveInstanceState(outState: Bundle?) {

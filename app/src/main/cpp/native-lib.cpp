@@ -4,6 +4,7 @@
 #include <utility>
 #include <android/log.h>
 #include <android/bitmap.h>
+#include <map>
 
 using namespace std;
 
@@ -20,7 +21,8 @@ extern "C" {
 }
 
 #define LOG_TAG "android-ffmpeg"
-#define LOGV(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__);
+#define LOGV(...) __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, __VA_ARGS__);
+#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__);
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__);
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__);
 
@@ -36,9 +38,13 @@ Java_com_example_xiaodong_testvideo_FFmpeg_stringFromJNI(
 
 class CameraStreamHolder {
     jstring source;
-	const char* camera_source;
-    vector<jstring> dests;
-	vector<const char*> camera_dests;
+	string camera_source;
+    jobjectArray dests;
+    jobject sourceProperties;
+    jobjectArray destsProperties;
+	vector<string> camera_dests;
+    map<string, string> camera_source_properties;
+    vector<map<string, string> > camera_dests_properties;
     vector<AVFormatContext*> oformatCtxs;
     vector<AVCodecContext*> ocodecCtxs;
     vector<AVStream*> ostreams;
@@ -68,26 +74,161 @@ class CameraStreamHolder {
 public:
     CameraStreamHolder(
             JNIEnv * const env, jstring source, jobjectArray dests,
-            jobject callback
-    ) : env(env), source(source), camera_source(env->GetStringUTFChars(source, NULL)) {
+            jobject callback, jobject sourceProperties, jobjectArray destsProperties
+    ) : env(env), source(source), dests(dests),
+        sourceProperties(sourceProperties), destsProperties(destsProperties) {
+        const char* camera_source_str = env->GetStringUTFChars(source, NULL);
+        camera_source = string(camera_source_str, strlen(camera_source_str));
+        env->ReleaseStringUTFChars(source, camera_source_str);
         LOGI("create camera holder source: %s.\n", camera_source);
         if (!env->IsSameObject(callback, NULL)) {
             this->callback = env->NewGlobalRef(callback);
             decode = true;
         }
+    }
+
+    bool getSource() {
+        const char* camera_source_str = env->GetStringUTFChars(source, NULL);
+        camera_source = string(camera_source_str, strlen(camera_source_str));
+        env->ReleaseStringUTFChars(source, camera_source_str);
+        LOGI("create camera holder source: %s.\n", camera_source);
+        if (!env->IsSameObject(callback, NULL)) {
+            this->callback = env->NewGlobalRef(callback);
+            decode = true;
+        }
+        return true;
+    }
+
+    bool getDests() {
         if (!env->IsSameObject(dests, NULL)) {
             int destLength = env->GetArrayLength(dests);
+            if (env->ExceptionCheck()) {
+                LOGE("Exception occurs to get array size.\n");
+                return false;
+            }
             for (int i = 0; i < destLength; i++) {
                 jstring dest = (jstring)(env->GetObjectArrayElement(dests, i));
-                const char *camera_dest = env->GetStringUTFChars(dest, NULL);
+                if (env->ExceptionCheck()) {
+                    LOGE("Exception occurs to get array element %d.\n", i);
+                    return false;
+                }
+                const char *camera_dest_str = env->GetStringUTFChars(dest, NULL);
+                string camera_dest(camera_dest_str, strlen(camera_dest_str));
+                env->ReleaseStringUTFChars(dest, camera_dest_str);
                 LOGI("create camer dest %s for source %s.\n", camera_dest, camera_source);
-                this->dests.push_back(dest);
-				camera_dests.push_back(camera_dest);
+                camera_dests.push_back(camera_dest);
                 oformatCtxs.push_back(NULL);
                 ocodecCtxs.push_back(NULL);
                 ostreams.push_back(NULL);
             }
         }
+        return true;
+    }
+
+    bool convertMap(map<string, string>& converted_map, jobject orig_map) {
+        jclass mapClass = env->FindClass("java/util/Map");
+        if (env->IsSameObject(mapClass, NULL)) {
+            LOGE("failed to find map class");
+            return false;
+        }
+        jmethodID mapSetMethod = env->GetMethodID(mapClass, "entrySet", "()Ljava/util.Set;");
+        if (mapSetMethod == NULL) {
+            LOGE("failed to find entrySet method");
+            return false;
+        }
+        jclass setClass = env->FindClass("java/util/Set");
+        if (env->IsSameObject(setClass, NULL)) {
+            LOGE("failed to find Set Class");
+            return false;
+        }
+        jmethodID setArrayMethod = env->GetMethodID(setClass, "toArray", "()[Ljava/lang/Object;");
+        if (setArrayMethod == NULL) {
+            LOGE("failed to find toArray method");
+            return false;
+        }
+        jclass mapEntryClass =  env->FindClass("java/util/Map.Entry");
+        if (env->IsSameObject(mapEntryClass, NULL)) {
+            LOGE("failed to find Map.Entry class");
+            return false;
+        }
+        jmethodID entryKey = env->GetMethodID(mapEntryClass, "getKey", "()Ljva/lang/Object;");
+        if (entryKey == NULL) {
+            LOGE("failed to find getKey method");
+            return false;
+        }
+        jmethodID entryValue = env->GetMethodID(mapEntryClass, "getValue", "()Ljava/lang/Object;");
+        if (entryValue == NULL) {
+            LOGE("failed to find getValue method");
+            return false;
+        }
+        jobject mapSet = env->CallObjectMethod(orig_map, mapSetMethod);
+        if (env->ExceptionCheck()) {
+            LOGE("Exception occurs to get set.\n");
+            return false;
+        }
+        jobject objArray = env->CallObjectMethod(mapSet, setArrayMethod);
+        if (env->ExceptionCheck()) {
+            LOGE("Exception occurs to get array.\n");
+            return false;
+        }
+        jobjectArray* array = reinterpret_cast<jobjectArray*>(&objArray);
+        jsize len = env->GetArrayLength(*array);
+        if (env->ExceptionCheck()) {
+            LOGE("Exception occurs to array size.\n");
+            return false;
+        }
+        for (int i = 0; i < len; i++) {
+            jobject entry = env->GetObjectArrayElement(*array, i);
+            if (env->ExceptionCheck()) {
+                LOGE("Exception occurs to array element %d.\n", i);
+                return false;
+            }
+            jobject key = env->CallObjectMethod(entry, entryKey);
+            if (env->ExceptionCheck()) {
+                LOGE("Exception occurs to get key at array element %d.\n", i);
+                return false;
+            }
+            jobject value =  env->CallObjectMethod(entry, entryValue);
+            if (env->ExceptionCheck()) {
+                LOGE("Exception occurs to get value at array element %d.\n", i);
+                return false;
+            }
+            jstring* keyString = reinterpret_cast<jstring*>(&key);
+            jstring* valueString = reinterpret_cast<jstring*>(&value);
+            const char* keyStr = env->GetStringUTFChars(*keyString, NULL);
+            const char* valueStr = env->GetStringUTFChars(*valueString, NULL);
+            converted_map[string(keyStr, strlen(keyStr))] = string(valueStr, strlen(valueStr));
+            env->ReleaseStringUTFChars(*keyString, keyStr);
+            env->ReleaseStringUTFChars(*valueString, valueStr);
+        }
+        return true;
+    }
+
+    bool getSourceProperties() {
+        return convertMap(camera_source_properties, sourceProperties)
+    }
+
+    bool getDestsProperties() {
+        if (!env->IsSameObject(dests, NULL)) {
+            int destLength = env->GetArrayLength(destsProperties);
+            if (env->ExceptionCheck()) {
+                LOGE("Exception occurs to get array size.\n");
+                return false;
+            }
+            for (int i = 0; i < destLength; i++) {
+                jobject dest_properties = env->GetObjectArrayElement(destsProperties, i);
+                if (env->ExceptionCheck()) {
+                    LOGE("Exception occurs to get array element %d.\n", i);
+                    return false;
+                }
+                map<string, string> camera_dest_properties;
+                if(!convertMap(camera_dest_properties, dest_properties) {
+                    return false;
+                }
+                camera_dests_properties.push_back(camera_dest_properties);
+            }
+        }
+        return true;
     }
 
     bool initBitmapCallbackMethod() {
@@ -288,15 +429,30 @@ public:
             LOGI("is already initialized.\n")
             return true;
         }
-		const char* device_prefix = "/dev/";
+        if(!getSource()) {
+            LOGE("failed to setup camera source");
+            return false;
+        }
+        if (!getDests()) {
+            LOGE("failed to setup camera dests");
+            return false;
+        }
+        if (!getSourceProperties()) {
+            LOGE("failed to setup source properties");
+            return false;
+        }
+        if (!getDestsProperties()) {
+            LOGE("failed to setup dests properties");
+            return false;
+        }
+		const char* content_prefix = "content:";
 		int camera_source_len = strlen(camera_source);
-		int device_prefix_len = strlen(device_prefix);
+		int content_prefix_len = strlen(content_prefix);
 		if (
-		    camera_source_len >= device_prefix_len &&
-			strncmp (camera_source, device_prefix, device_prefix_len) == 0
+		    camera_source_len >= content_prefix_len &&
+			strncmp (camera_source, content_prefix, content_prefix_len) == 0
 		) {
 			inputFormat = av_find_input_format("v4l2");
-			av_dict_set(&options, "framerate", "20", 0);
 		}
         // Open video file
         int err_code;
@@ -405,7 +561,7 @@ public:
                 NULL
         );
         LOGI("got sws context.\n");
-        int destLength = dests.size();
+        int destLength = camera_dests.size();
         for (int i = 0; i < destLength; i++) {
             const char* camera_dest = camera_dests[i];
             if((err_code = avformat_alloc_output_context2(
@@ -478,7 +634,7 @@ public:
         int64_t base_time_ms = av_gettime();
         int64_t base_pts = last_pts;
         int err_code;
-        int destLength = dests.size();
+        int destLength = camera_dests.size();
 		vector<bool> destsStatus;
         for (int i = 0; i < destLength; i++) {
             const char *camera_dest = camera_dests[i];
@@ -716,12 +872,7 @@ public:
 			options = NULL;
 		}
         LOGI("av options is freed.\n");
-        if (camera_source != NULL) {
-            LOGI("release camera source string.\n");
-            env->ReleaseStringUTFChars(source, camera_source);
-        }
-        LOGI("camera source string is released.\n");
-        int destLength = dests.size();
+        int destLength = camera_dests.size();
         for (int i = 0; i < destLength; i++) {
             ostreams[i] = NULL;
 			if (ostreams[i] != NULL) {
@@ -738,11 +889,6 @@ public:
 			}
             oformatCtxs[i] = NULL;
             LOGI("output context %d is freed.\n", i);
-			if (camera_dests[i] != NULL) {
-				env->ReleaseStringUTFChars(dests[i], camera_dests[i]);
-			}
-			camera_dests[i] = NULL;
-            LOGI("output dest string %d is released.\n", i);
         }
         LOGI("deconstruction is done.\n");
     }

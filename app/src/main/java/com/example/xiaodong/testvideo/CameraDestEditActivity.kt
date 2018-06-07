@@ -19,6 +19,7 @@ class CameraDestEditActivity : AppCompatActivity() {
 
     private var cameraDestProperties: ArrayList<CameraDestProperty>? = null
     private var cameraDestPropertyAdapter: CameraDestPropertyAdapter? = null
+    private var fileManager: FileManager? = null
 
     inner class SaveCameraDest: View.OnClickListener {
         override fun onClick(v: View?) {
@@ -98,6 +99,7 @@ class CameraDestEditActivity : AppCompatActivity() {
         add_camera_dest_property.setOnClickListener(AddCameraDestProperty())
         edit_camera_dest_save.setOnClickListener(SaveCameraDest())
         edit_camera_dest_url.setOnLongClickListener(SelectDirectory())
+        fileManager = FileManager(this)
     }
 
     override fun onSaveInstanceState(outState: Bundle?) {
@@ -142,7 +144,7 @@ class CameraDestEditActivity : AppCompatActivity() {
             data?.let {
                 when (requestCode) {
                     REQUEST_UPLOAD_GALLERY_VIDEO -> {
-                        var url = FileManager.getCameraDestUrl(this, it)
+                        var url = fileManager!!.getCameraDestUrl(it)
                         url?.let {
                             edit_camera_dest_url.setText(it)
                         }
