@@ -115,7 +115,7 @@ class MainActivity : AppCompatActivity() {
     fun onButtonClickAdd() {
         Log.i(LOG_TAG, "add camera")
         val intent = Intent(this, CameraEditActivity::class.java)
-        this.startActivityForResult(intent, com.example.xiaodong.testvideo.MainActivity.REQUEST_ADD_CAMERA)
+        this.startActivityForResult(intent, REQUEST_ADD_CAMERA)
     }
 
     fun onButtonClickSave() {

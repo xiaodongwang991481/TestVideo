@@ -7,6 +7,7 @@ import kotlinx.android.synthetic.main.activity_video_play.*
 class VideoProcessTask : AsyncTask<Any, Any, Unit> {
 
     val camera: Camera
+    val fileManager: FileManager
     @Volatile var last_pts: Long = 0
     private val lock = java.lang.Object()
     @Volatile private var finished = false
@@ -14,15 +15,18 @@ class VideoProcessTask : AsyncTask<Any, Any, Unit> {
     private val copyToDests: Boolean
 
     constructor(
-            camera: Camera, cameraCallback: CallbackForCamera?=null,
+            camera: Camera,
+            fileManager: FileManager,
+            cameraCallback: CallbackForCamera?=null,
             copyToDests: Boolean=false, last_pts: Long=0) : super() {
         this.camera = camera
+        this.fileManager = fileManager
         this.cameraCallback = cameraCallback
         this.copyToDests = copyToDests
         this.last_pts = last_pts
     }
 
-    fun waitFinish() : Long {
+    fun waitFinish() : Boolean {
         synchronized(lock) {
             Log.i(LOG_TAG, "wait background task finished.")
             while (!finished) {
@@ -30,30 +34,20 @@ class VideoProcessTask : AsyncTask<Any, Any, Unit> {
             }
             Log.i(LOG_TAG, "background task is already finished.")
         }
-        return last_pts
+        return true
     }
 
     override fun doInBackground(vararg params: Any?): Unit {
         Log.i(LOG_TAG, "background task is started.")
-        var dests: Array<String>? = null
-        if (copyToDests) {
-            var destList = ArrayList<String>()
-            for (dest in camera.dests) {
-                destList.add(dest.url)
-            }
-            dests = destList.toTypedArray()
-        }
-        var pts = FFmpeg.getInstance().decode(
-                camera.source, dests, cameraCallback,
+        var status = FFmpeg.getInstance().decode2(
+                camera, fileManager, cameraCallback,
+                copyToDests,
                 last_pts
         )
-        Log.i(LOG_TAG, "background task is finished.")
+        Log.i(LOG_TAG, "background task is finished with status=$status.")
         synchronized(lock) {
             Log.i(LOG_TAG, "notify all waits.")
             finished = true
-            if (pts > 0) {
-                last_pts = pts
-            }
             lock.notifyAll()
             Log.i(LOG_TAG, "wait threads are notified.")
         }

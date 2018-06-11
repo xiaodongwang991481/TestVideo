@@ -176,10 +176,13 @@ class VideoPlayActivity : AppCompatActivity() {
             it.clearFinished()
         }
         camera?.let {
-            backgroundTask = backgroundTask ?: VideoProcessTask(
-                    it, cameraCallback, last_pts=last_pts
-            ).apply {
-                execute()
+            cit ->
+            fileManager?.let {
+                backgroundTask = backgroundTask ?: VideoProcessTask(
+                        cit, it, cameraCallback, last_pts = last_pts
+                ).apply {
+                    execute()
+                }
             }
         }
     }
@@ -190,7 +193,7 @@ class VideoPlayActivity : AppCompatActivity() {
             it.setFinished()
         }
         backgroundTask?.apply {
-            last_pts = waitFinish()
+            waitFinish()
         }
         backgroundTask = null
     }

@@ -199,6 +199,7 @@ class CameraEditActivity : AppCompatActivity() {
         edit_camera_source.setOnLongClickListener(SelectVideo())
         camera_dest_url.setOnLongClickListener(SelectDirectory())
         edit_camera_save.setOnClickListener(SaveCamera())
+        fileManager = FileManager(this)
     }
 
     override fun onSaveInstanceState(outState: Bundle?) {
@@ -408,15 +409,6 @@ class CameraEditActivity : AppCompatActivity() {
     }
 
     companion object {
-        fun px2dip(context: Context, pxValue: Float) : Int {
-            var scale = context.getResources().getDisplayMetrics().density
-            return (pxValue/scale+0.5f).toInt()
-        }
-
-        fun dip2px(context: Context, dipValue: Float) : Int {
-            var scale = context.getResources().getDisplayMetrics().density
-            return (dipValue*scale+0.5f).toInt()
-        }
         private val LOG_TAG = "CameraEditActivity"
         private val REQUEST_ADD_CAMERA_DEST = 1
         private var REQUEST_UPDATE_CAMERA_DEST = 2

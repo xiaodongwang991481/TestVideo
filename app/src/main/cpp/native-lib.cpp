@@ -10,6 +10,7 @@ using namespace std;
 
 extern "C" {
 #define __STDC_CONSTANT_MACROS
+#include <unistd.h>
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libswscale/swscale.h>
@@ -43,8 +44,10 @@ class CameraStreamHolder {
     jobject sourceProperties;
 	vector<string> camera_dests;
     jobjectArray destsProperties;
+    jobject fileDescriptors;
     map<string, string> camera_source_properties;
     vector<map<string, string> > camera_dests_properties;
+    map<string, int> camera_file_descriptors;
     vector<AVFormatContext*> oformatCtxs;
     vector<AVCodecContext*> ocodecCtxs;
     vector<AVStream*> ostreams;
@@ -54,6 +57,11 @@ class CameraStreamHolder {
     jobject callback = NULL;
     jmethodID bitmapCallbackMethod = NULL;
     jmethodID finishCallbackMethod = NULL;
+    jmethodID mapSetMethod = NULL;
+    jmethodID setArrayMethod = NULL;
+    jmethodID entryKey = NULL;
+    jmethodID entryValue = NULL;
+    jmethodID fdMethod = NULL;
     bool decode = false;
     bool sync = false;
     jobject bitmap = NULL;
@@ -74,13 +82,11 @@ class CameraStreamHolder {
 public:
     CameraStreamHolder(
             JNIEnv * const env, jstring source, jobjectArray dests,
-            jobject callback, jobject sourceProperties, jobjectArray destsProperties
+            jobject callback, jobject sourceProperties, jobjectArray destsProperties,
+            jobject fileDescriptors
     ) : env(env), source(source), dests(dests),
-        sourceProperties(sourceProperties), destsProperties(destsProperties) {
-        const char* camera_source_str = env->GetStringUTFChars(source, NULL);
-        camera_source = string(camera_source_str, strlen(camera_source_str));
-        env->ReleaseStringUTFChars(source, camera_source_str);
-        LOGI("create camera holder source: %s.\n", camera_source.c_str());
+        sourceProperties(sourceProperties), destsProperties(destsProperties),
+        fileDescriptors(fileDescriptors) {
         if (!env->IsSameObject(callback, NULL)) {
             this->callback = env->NewGlobalRef(callback);
             decode = true;
@@ -88,53 +94,59 @@ public:
     }
 
     bool getSource() {
+        if (env->IsSameObject(source, NULL)) {
+            LOGE("source is null.\n");
+            return false;
+        }
         const char* camera_source_str = env->GetStringUTFChars(source, NULL);
         camera_source = string(camera_source_str, strlen(camera_source_str));
         env->ReleaseStringUTFChars(source, camera_source_str);
         LOGI("create camera holder source: %s.\n", camera_source.c_str());
-        if (!env->IsSameObject(callback, NULL)) {
-            this->callback = env->NewGlobalRef(callback);
-            decode = true;
-        }
         return true;
     }
 
     bool getDests() {
-        if (!env->IsSameObject(dests, NULL)) {
-            int destLength = env->GetArrayLength(dests);
+        if (env->IsSameObject(dests, NULL)) {
+            LOGI("dests is null.\n");
+            return true;
+        }
+        int destLength = env->GetArrayLength(dests);
+        if (env->ExceptionCheck()) {
+            LOGE("Exception occurs to get array size.\n");
+            return false;
+        }
+        for (int i = 0; i < destLength; i++) {
+            jstring dest = (jstring)(env->GetObjectArrayElement(dests, i));
             if (env->ExceptionCheck()) {
-                LOGE("Exception occurs to get array size.\n");
+                LOGE("Exception occurs to get array element %d.\n", i);
                 return false;
             }
-            for (int i = 0; i < destLength; i++) {
-                jstring dest = (jstring)(env->GetObjectArrayElement(dests, i));
-                if (env->ExceptionCheck()) {
-                    LOGE("Exception occurs to get array element %d.\n", i);
-                    return false;
-                }
-                const char *camera_dest_str = env->GetStringUTFChars(dest, NULL);
-                string camera_dest(camera_dest_str, strlen(camera_dest_str));
-                env->ReleaseStringUTFChars(dest, camera_dest_str);
-                LOGI(
-                        "create camer dest %s for source %s.\n",
-                        camera_dest.c_str(), camera_source.c_str()
-                );
-                camera_dests.push_back(camera_dest);
-                oformatCtxs.push_back(NULL);
-                ocodecCtxs.push_back(NULL);
-                ostreams.push_back(NULL);
+            if (env->IsSameObject(dest, NULL)) {
+                LOGE("dest %d is null.\n", i);
+                return false;
             }
+            const char *camera_dest_str = env->GetStringUTFChars(dest, NULL);
+            string camera_dest(camera_dest_str, strlen(camera_dest_str));
+            env->ReleaseStringUTFChars(dest, camera_dest_str);
+            LOGI(
+                    "create camer dest %s for source %s.\n",
+                    camera_dest.c_str(), camera_source.c_str()
+            );
+            camera_dests.push_back(camera_dest);
+            oformatCtxs.push_back(NULL);
+            ocodecCtxs.push_back(NULL);
+            ostreams.push_back(NULL);
         }
         return true;
     }
 
-    bool convertMap(map<string, string>& converted_map, jobject orig_map) {
+    bool initMapConverter() {
         jclass mapClass = env->FindClass("java/util/Map");
         if (env->IsSameObject(mapClass, NULL)) {
             LOGE("failed to find map class");
             return false;
         }
-        jmethodID mapSetMethod = env->GetMethodID(mapClass, "entrySet", "()Ljava/util.Set;");
+        mapSetMethod = env->GetMethodID(mapClass, "entrySet", "()Ljava/util/Set;");
         if (mapSetMethod == NULL) {
             LOGE("failed to find entrySet method");
             return false;
@@ -144,29 +156,55 @@ public:
             LOGE("failed to find Set Class");
             return false;
         }
-        jmethodID setArrayMethod = env->GetMethodID(setClass, "toArray", "()[Ljava/lang/Object;");
+        setArrayMethod = env->GetMethodID(setClass, "toArray", "()[Ljava/lang/Object;");
         if (setArrayMethod == NULL) {
             LOGE("failed to find toArray method");
             return false;
         }
-        jclass mapEntryClass =  env->FindClass("java/util/Map.Entry");
+        jclass mapEntryClass =  env->FindClass("java/util/Map$Entry");
         if (env->IsSameObject(mapEntryClass, NULL)) {
             LOGE("failed to find Map.Entry class");
             return false;
         }
-        jmethodID entryKey = env->GetMethodID(mapEntryClass, "getKey", "()Ljva/lang/Object;");
+        entryKey = env->GetMethodID(mapEntryClass, "getKey", "()Ljava/lang/Object;");
         if (entryKey == NULL) {
             LOGE("failed to find getKey method");
             return false;
         }
-        jmethodID entryValue = env->GetMethodID(mapEntryClass, "getValue", "()Ljava/lang/Object;");
+        entryValue = env->GetMethodID(mapEntryClass, "getValue", "()Ljava/lang/Object;");
         if (entryValue == NULL) {
             LOGE("failed to find getValue method");
             return false;
         }
+        return true;
+    }
+
+    bool initFileDescriptorConverter() {
+        jclass fdClass = env->FindClass("android/os/ParcelFileDescriptor");
+        if (env->IsSameObject(fdClass, NULL)) {
+            LOGE("failed to get ParcelFileDescriptor.\n");
+            return false;
+        }
+        fdMethod = env->GetMethodID(fdClass,"detachFd","()I");
+        if (fdMethod == NULL) {
+            LOGE("failed to get descriptor method.\n");
+            return false;
+        }
+        return true;
+    }
+
+    bool convertMap(map<string, jobject>& converted_map, const jobject& orig_map) {
+        if (env->IsSameObject(orig_map, NULL)) {
+            LOGI("map object is null.\n");
+            return true;
+        }
         jobject mapSet = env->CallObjectMethod(orig_map, mapSetMethod);
         if (env->ExceptionCheck()) {
             LOGE("Exception occurs to get set.\n");
+            return false;
+        }
+        if (env->IsSameObject(mapSet, NULL)) {
+            LOGE("Map.entrySet is null.\n");
             return false;
         }
         jobject objArray = env->CallObjectMethod(mapSet, setArrayMethod);
@@ -174,21 +212,33 @@ public:
             LOGE("Exception occurs to get array.\n");
             return false;
         }
-        jobjectArray* array = reinterpret_cast<jobjectArray*>(&objArray);
-        jsize len = env->GetArrayLength(*array);
+        if (env->IsSameObject(objArray, NULL)) {
+            LOGE("array object is null.\n");
+            return false;
+        }
+        jobjectArray array = reinterpret_cast<jobjectArray>(objArray);
+        jsize len = env->GetArrayLength(array);
         if (env->ExceptionCheck()) {
             LOGE("Exception occurs to array size.\n");
             return false;
         }
         for (int i = 0; i < len; i++) {
-            jobject entry = env->GetObjectArrayElement(*array, i);
+            jobject entry = env->GetObjectArrayElement(array, i);
             if (env->ExceptionCheck()) {
                 LOGE("Exception occurs to array element %d.\n", i);
                 return false;
             }
-            jobject key = env->CallObjectMethod(entry, entryKey);
+            if (env->IsSameObject(entry, NULL)) {
+                LOGE("failed to get entry at %d", i);
+                return false;
+            }
+            jstring key = reinterpret_cast<jstring>(env->CallObjectMethod(entry, entryKey));
             if (env->ExceptionCheck()) {
                 LOGE("Exception occurs to get key at array element %d.\n", i);
+                return false;
+            }
+            if (env->IsSameObject(key, NULL)) {
+                LOGE("failed to get key at %d.\n", i);
                 return false;
             }
             jobject value =  env->CallObjectMethod(entry, entryValue);
@@ -196,40 +246,94 @@ public:
                 LOGE("Exception occurs to get value at array element %d.\n", i);
                 return false;
             }
-            jstring* keyString = reinterpret_cast<jstring*>(&key);
-            jstring* valueString = reinterpret_cast<jstring*>(&value);
-            const char* keyStr = env->GetStringUTFChars(*keyString, NULL);
-            const char* valueStr = env->GetStringUTFChars(*valueString, NULL);
-            converted_map[string(keyStr, strlen(keyStr))] = string(valueStr, strlen(valueStr));
-            env->ReleaseStringUTFChars(*keyString, keyStr);
-            env->ReleaseStringUTFChars(*valueString, valueStr);
+            if (env->IsSameObject(value, NULL)) {
+                LOGE("failed to get value at %d.\n", i);
+                return false;
+            }
+            const char* keyStr = env->GetStringUTFChars(key, NULL);
+            converted_map[string(keyStr, strlen(keyStr))] = value;
+            env->ReleaseStringUTFChars(key, keyStr);
+        }
+        return true;
+    }
+
+    bool convertStringMap(map<string, string>& converted_map, const jobject& orig_map) {
+        map<string, jobject> object_map;
+        if (!convertMap(object_map, orig_map)) {
+            LOGE("failed to convert map.\n");
+            return false;
+        }
+        for (map<string, jobject>::iterator it = object_map.begin(); it != object_map.end(); ++it) {
+            const string& key = it->first;
+            jstring value = reinterpret_cast<jstring>(it->second);
+            const char* valueString = env->GetStringUTFChars(value, NULL);
+            converted_map[key] = string(valueString, strlen(valueString));
+            env->ReleaseStringUTFChars(value, valueString);
+            LOGI("get map key=%s value=%s.\n", key.c_str(), valueString);
         }
         return true;
     }
 
     bool getSourceProperties() {
-        return convertMap(camera_source_properties, sourceProperties);
+        return convertStringMap(camera_source_properties, sourceProperties);
+    }
+
+    bool getFileDescriptors() {
+        map<string, jobject> convert_map;
+        if (!convertMap(convert_map, fileDescriptors)) {
+            LOGE("failed to convert file descriptors map.\n");
+            return false;
+        }
+        for (
+                map<string, jobject>::iterator it =  convert_map.begin();
+                it != convert_map.end(); ++it
+        ) {
+            const string& key = it->first;
+            jobject value = it->second;
+            int fd = env->CallIntMethod(value, fdMethod);
+            if (env->ExceptionCheck()) {
+                LOGE("failed to get fd.\n");
+                return false;
+            }
+            camera_file_descriptors[key] = fd;
+            LOGI("get file descriptor %d from %s.\n", fd, key.c_str());
+        }
+        return true;
     }
 
     bool getDestsProperties() {
-        if (!env->IsSameObject(dests, NULL)) {
-            int destLength = env->GetArrayLength(destsProperties);
+        if (env->IsSameObject(destsProperties, NULL)) {
+            LOGI("dests properties is null.\n");
+            return true;
+        }
+        int destLength = env->GetArrayLength(destsProperties);
+        if (env->ExceptionCheck()) {
+            LOGE("Exception occurs to get array size.\n");
+            return false;
+        }
+        if (destLength != camera_dests.size()) {
+            LOGE(
+                    "dests properties size %d does not match camera dests %d.\n",
+                    destLength, camera_dests.size()
+            );
+            return false;
+        }
+        for (int i = 0; i < destLength; i++) {
+            jobject dest_properties = env->GetObjectArrayElement(destsProperties, i);
             if (env->ExceptionCheck()) {
-                LOGE("Exception occurs to get array size.\n");
+                LOGE("Exception occurs to get array element %d.\n", i);
                 return false;
             }
-            for (int i = 0; i < destLength; i++) {
-                jobject dest_properties = env->GetObjectArrayElement(destsProperties, i);
-                if (env->ExceptionCheck()) {
-                    LOGE("Exception occurs to get array element %d.\n", i);
+            map<string, string> camera_dest_properties;
+            if (env->IsSameObject(dest_properties, NULL)) {
+                LOGI("dest %d properties is null", i);
+            } else {
+                if (!convertStringMap(camera_dest_properties, dest_properties)) {
+                    LOGE("failed to convert string map.\n");
                     return false;
                 }
-                map<string, string> camera_dest_properties;
-                if(!convertMap(camera_dest_properties, dest_properties)) {
-                    return false;
-                }
-                camera_dests_properties.push_back(camera_dest_properties);
             }
+            camera_dests_properties.push_back(camera_dest_properties);
         }
         return true;
     }
@@ -293,7 +397,7 @@ public:
         return finished;
     }
 
-    bool Sync() {
+    bool getSync() {
         LOGI("init sync callback method.\n");
         jclass cbClass = env->FindClass("com/example/xiaodong/testvideo/CallbackFromJNI");
         if (env->IsSameObject(cbClass, NULL)) {
@@ -307,24 +411,24 @@ public:
         }
         if (env->IsSameObject(callback, NULL)) {
             LOGE("callback is NULL");
-            return true;
+            return false;
         }
         jboolean sync = env->CallBooleanMethod(callback, syncCallbackMethod);
         if (env->ExceptionCheck()) {
             LOGE("exception occurs when calling syncCallback.\n");
-            return true;
+            return false;
         }
         LOGI("should be in sync? %d.\n", sync);
         return sync;
     }
 
-    jobject createBitmap() {
+    bool createBitmap() {
         LOGI("create bitmap.\n");
         //get Bitmap class and createBitmap method ID
         jclass javaBitmapClass = (jclass)env->FindClass("android/graphics/Bitmap");
         if (env->IsSameObject(javaBitmapClass, NULL)) {
             LOGE("Failed to get Bitmap Class.\n");
-            return NULL;
+            return false;
         }
         jmethodID mid = env->GetStaticMethodID(
                 javaBitmapClass, "createBitmap",
@@ -332,7 +436,7 @@ public:
         );
         if (mid == NULL) {
             LOGE("failed to get CreateBitmap method.\n");
-            return NULL;
+            return false;
         }
         //create Bitmap.Config
         //reference: https://forums.oracle.com/thread/1548728
@@ -340,7 +444,7 @@ public:
         jclass bitmapConfigClass = env->FindClass("android/graphics/Bitmap$Config");
         if (env->IsSameObject(bitmapConfigClass, NULL)) {
             LOGE("failed to get Bitmap$Config class.\n");
-            return NULL;
+            return false;
         }
         jobject javaBitmapConfig = env->CallStaticObjectMethod(
                 bitmapConfigClass,
@@ -350,19 +454,28 @@ public:
                 ),
                 jConfigName
         );
+        if (env->ExceptionCheck()) {
+            LOGE("Exception raises to create BitmapConfig.\n");
+            return false;
+        }
         if (env->IsSameObject(javaBitmapConfig, NULL)) {
             LOGE("failed to get Bitmap$Config instance.\n");
-            return NULL;
+            return false;
         }
         //create the bitmap
         jobject localBitmap = env->CallStaticObjectMethod(
                 javaBitmapClass, mid, width, height, javaBitmapConfig
         );
+        if (env->ExceptionCheck()) {
+            LOGE("exception raises to create bitmap.\n");
+            return false;
+        }
         if (env->IsSameObject(localBitmap, NULL)) {
             LOGE("failed to get Bitmap instance.\n");
-            return NULL;
+            return false;
         }
-        return reinterpret_cast<jobject>(env->NewGlobalRef(localBitmap));
+        bitmap = reinterpret_cast<jobject>(env->NewGlobalRef(localBitmap));
+        return true;
     }
 
     void copy_codec_info(AVCodecContext* ocodec, AVCodecContext* icodec, AVFormatContext* ofmt_ctx) {
@@ -432,38 +545,75 @@ public:
             LOGI("is already initialized.\n")
             return true;
         }
-        if(!getSource()) {
-            LOGE("failed to setup camera source");
+        LOGI("initialize map converter.\n");
+        if (!initMapConverter()) {
+            LOGE("failed to initialize map converter.\n");
             return false;
         }
+        LOGI("initialize file descriptor field.\n");
+        if (!initFileDescriptorConverter()) {
+            LOGE("failed to initialize file descriptor field.\n");
+            return false;
+        }
+        LOGI("file descriptor field is got.\n");
+        if (!initBitmapCallbackMethod()) {
+            LOGE("failed to init bitmap callback method.\n");
+            return false;
+        }
+        LOGI("bitmap callback methed is got.\n");
+        if (!initFinishCallbackMethod()) {
+            LOGE("failed to init finish callback method.\n");
+            return false;
+        }
+        LOGI("finish callback method is got.\n");
+        sync = getSync();
+        LOGI("sync=%d", sync)
+        if (!getSource()) {
+            LOGE("failed to setup camera source.\n");
+            return false;
+        }
+        LOGI("camera source is got: %s.\n", camera_source.c_str());
         if (!getDests()) {
-            LOGE("failed to setup camera dests");
+            LOGE("failed to setup camera dests.\n");
             return false;
         }
+        LOGI("camera dests are got.\n");
         if (!getSourceProperties()) {
-            LOGE("failed to setup source properties");
+            LOGE("failed to setup source properties.\n");
             return false;
         }
+        LOGI("camera source properties are got.\n");
         if (!getDestsProperties()) {
-            LOGE("failed to setup dests properties");
+            LOGE("failed to setup dests properties.\n");
             return false;
         }
-		if (camera_source.rfind("content:", 0) == 0) {
-			inputFormat = av_find_input_format("v4l2");
-		}
+        LOGI("camera dests properties are got.\n");
+        if (!getFileDescriptors()) {
+            LOGE("failed to set file descriptors.\n");
+        }
+        LOGI("file descriptors are got.\n");
+        if (camera_file_descriptors.find(camera_source) != camera_file_descriptors.end()) {
+            int file_descriptor = camera_file_descriptors[camera_source];
+            char path[20];
+            sprintf(path, "pipe:%d", file_descriptor);
+            camera_source = string(path, strlen(path));
+            LOGI("reset camera source to %s.\n", camera_source.c_str());
+        }
         if (camera_source_properties.find("input_format") != camera_source_properties.end()) {
             inputFormat = av_find_input_format(camera_source_properties["input_format"].c_str());
+            LOGI("set input format.\n");
         }
         // Open video file
         int err_code;
-        if((err_code=avformat_open_input(&formatCtx, camera_source.c_str(), inputFormat, &options)) < 0){
+        if ((err_code = avformat_open_input(&formatCtx, camera_source.c_str(), inputFormat,
+                                            &options)) < 0) {
             LOGE("Couldn't open input %s.\n", camera_source.c_str());
             check_error(err_code);
             return false;
         }
         LOGI("camera input %s is opened.\n", camera_source.c_str());
         // Retrieve stream information
-        if((err_code=avformat_find_stream_info(formatCtx, NULL)) < 0){
+        if ((err_code = avformat_find_stream_info(formatCtx, NULL)) < 0) {
             LOGE("FAILED to find stream info %s.\n", camera_source.c_str());
             check_error(err_code);
             return false; // Couldn't find stream information
@@ -471,31 +621,64 @@ public:
         LOGI("read camera %s stream info success.\n", camera_source.c_str());
         // Dump information about file onto standard error
         av_dump_format(formatCtx, 0, camera_source.c_str(), 0);
+        for (int i = 0; i < formatCtx->nb_streams; i++) {
+            LOGI("got stream %d codec type %d", i, formatCtx->streams[i]->codec->codec_type);
+        }
         err_code = av_find_best_stream(formatCtx, AVMEDIA_TYPE_VIDEO, -1, -1, &pCodec, 0);
         if (err_code < 0) {
             LOGE("Didn't find a video stream.\n");
             check_error(err_code);
             return false; // Didn't find a video stream
         }
+        if(pCodec == NULL) {
+            LOGE("Unsupported codec");
+            return false; // Codec not found
+        }
+        LOGI("get codec success: %s.\n", pCodec->name);
+        if (pCodec->pix_fmts != NULL) {
+            int i = 0;
+            while (true) {
+                LOGI("codec %d pix fmt %p.\n", i, pCodec->pix_fmts[i]);
+                if (pCodec->pix_fmts[i] == AV_PIX_FMT_NONE) {
+                    break;
+                }
+                i += 1;
+            }
+        } else {
+            LOGE("codec pix fmts is null");
+        }
         videoStreamIndex = err_code;
-        videoStream = formatCtx->streams[err_code];
+        videoStream = formatCtx->streams[videoStreamIndex];
         if (videoStream == NULL) {
             LOGE("failed to get video stream.\n");
             return false;
         }
         LOGI("find video stream %d.\n", videoStreamIndex);
-        if(pCodec == NULL) {
-            LOGE("Unsupported codec");
-            return false; // Codec not found
-        }
-        LOGI("get codec success.\n")
         // Get a pointer to the codec context for the video stream
-        codecCtx = videoStream->codec;
-        LOGI("get codec context success.\n")
+        // codecCtx = videoStream->codec;
+        // Copy context
+        codecCtx = avcodec_alloc_context3(pCodec);
+        if(avcodec_copy_context(codecCtx, videoStream->codec) != 0) {
+            LOGE("Couldn't copy codec context");
+            return false; // Error copying codec context
+        }
+        LOGI("get codec context success.\n");
+        // Open codec
+        if((err_code = avcodec_open2(codecCtx, pCodec, NULL)) < 0) {
+            LOGE("Could not open codec.\n");
+            check_error(err_code);
+            return false; // Could not open codec
+        }
+        LOGI("open codec success.\n");
+        if (codecCtx->pix_fmt == AV_PIX_FMT_NONE) {
+            LOGE("failed to get codec context pix format.\n");
+            return false;
+        }
         width = codecCtx->width;
         LOGI("get width %d.\n", width);
         height = codecCtx->height;
         LOGI("get height %d.\n", height);
+        LOGI("pix_fmt=%p.\n", codecCtx->pix_fmt);
         double timebase = av_q2d(codecCtx->time_base);
         LOGI("get codec timebase %lf.\n", timebase);
         int64_t bit_rate = codecCtx->bit_rate;
@@ -508,31 +691,11 @@ public:
         LOGI("get stream r framerate %lf.\n", r_framerate);
         double avg_framerate = av_q2d(videoStream->avg_frame_rate);
         LOGI("get stream avg framerate %lf.\n", avg_framerate);
-        bitmap = createBitmap();
-        if (env->IsSameObject(bitmap, NULL)) {
+        if (!createBitmap()) {
             LOGE("failed to create bitmap.\n");
             return false;
         }
         LOGI("bitmap instance is created.\n");
-        if (!initBitmapCallbackMethod()) {
-            LOGE("failed to init bitmap callback method.\n");
-            return false;
-        }
-        LOGI("bitmap callback methed is got.\n");
-        if (!initFinishCallbackMethod()) {
-            LOGE("failed to init finish callback method.\n");
-            return false;
-        }
-        LOGI("finish callback method is got.n");
-        sync = Sync();
-        LOGI("sync=%d", sync)
-        // Open codec
-        if((err_code = avcodec_open2(codecCtx, pCodec, NULL)) < 0) {
-            LOGE("Could not open codec.\n");
-            check_error(err_code);
-            return false; // Could not open codec
-        }
-        LOGI("open codec success.\n");
         // Allocate video frame
         decodedFrame = av_frame_alloc();
         if (decodedFrame == NULL) {
@@ -894,12 +1057,19 @@ public:
             oformatCtxs[i] = NULL;
             LOGI("output context %d is freed.\n", i);
         }
+        for (
+                map<string, int>::const_iterator it = camera_file_descriptors.begin();
+                it != camera_file_descriptors.end(); ++it
+        ) {
+            int fd = it->second;
+            close(fd);
+        }
         LOGI("deconstruction is done.\n");
     }
 };
 
 
-extern "C" JNIEXPORT jlong
+extern "C" JNIEXPORT jboolean
 JNICALL
 Java_com_example_xiaodong_testvideo_FFmpeg_decode(
         JNIEnv *env,
@@ -909,11 +1079,15 @@ Java_com_example_xiaodong_testvideo_FFmpeg_decode(
         jobject callback,
         jobject sourceProperties,
         jobjectArray destsProperties,
+        jobject fileDescriptors,
         jlong last_pts
 ) {
-    CameraStreamHolder holder(env, source, dests, callback, sourceProperties, destsProperties);
+    CameraStreamHolder holder(
+            env, source, dests, callback,
+            sourceProperties, destsProperties, fileDescriptors
+    );
     if(!holder.init()) {
-        return -1;
+        return false;
     }
     return holder.process_packets(last_pts);
 }

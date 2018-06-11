@@ -8,6 +8,7 @@ import android.provider.DocumentsContract
 import android.provider.MediaStore
 import android.util.Log
 import android.os.Environment.getExternalStorageDirectory
+import android.os.ParcelFileDescriptor
 import android.provider.OpenableColumns
 import android.widget.Toast
 import java.io.FileDescriptor
@@ -23,19 +24,23 @@ class FileManager {
     }
 
     fun getUriRealPath(contentUri: Uri): String? {
-        // val proj = arrayOf(MediaStore.Images.Media.DATA)
-        // val cursor = context.contentResolver.query(contentUri, proj, null, null, null) ?: return null
-        // val column_index = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA)
-        // cursor.moveToFirst()
-        // return cursor.getString(column_index)
-        return contentUri.toString()
+        val proj = arrayOf(MediaStore.Images.Media.DATA)
+        val cursor = context.contentResolver.query(contentUri, proj, null, null, null) ?: return null
+        val column_index = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA)
+        var realPath: String? = null
+        if(cursor.moveToFirst()) {
+            realPath = cursor.getString(column_index)
+        }
+        if (realPath == null) {
+            Log.i(LOG_TAG, "real path not find in database")
+            realPath = contentUri.toString()
+        }
+        return realPath
     }
 
-    fun getFileDescriptior(contentPath: String) : FileDescriptor {
+    fun getFileDescriptior(contentPath: String) : ParcelFileDescriptor {
         val contentUri = Uri.parse(contentPath)
-        val parcelFileDescriptor = context.contentResolver.openFileDescriptor(contentUri, "r")
-        val fileDescriptor = parcelFileDescriptor.fileDescriptor
-        return fileDescriptor
+        return context.contentResolver.openFileDescriptor(contentUri, "r")
     }
 
     fun getFileDisplayName(contentPath: String): String? {

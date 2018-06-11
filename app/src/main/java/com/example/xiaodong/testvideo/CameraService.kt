@@ -17,6 +17,7 @@ class CameraService : Service() {
 
     private var cameras: ArrayList<Camera>? = null
     private var dbHelper: DBOpenHelper? = null
+    private var fileManager: FileManager? = null
 
     private fun getInitialCameraList() : ArrayList<Camera> {
         return dbHelper!!.getAllCameras()
@@ -68,23 +69,26 @@ class CameraService : Service() {
     @Synchronized fun startBackgroundTasks() {
         Log.i(LOG_TAG, "start background tasks")
         cameras?.let {
-            var cameraCallbacks = ArrayList<CallbackForCamera>()
-            var cameraTasks = ArrayList<VideoProcessTask>()
-            for (camera in it) {
-                Log.i(LOG_TAG, "create background task for camera $camera")
-                var cameraCallback = CallbackProcessVideo(camera)
-                cameraCallback.clearFinished()
-                cameraCallback.clearSync()
-                var backgroundTask = VideoProcessTask(
-                        camera, cameraCallback, true
-                ).apply {
-                    execute()
+            cit ->
+            fileManager?.let {
+                var cameraCallbacks = ArrayList<CallbackForCamera>()
+                var cameraTasks = ArrayList<VideoProcessTask>()
+                for (camera in cit) {
+                    Log.i(LOG_TAG, "create background task for camera $camera")
+                    var cameraCallback = CallbackProcessVideo(camera)
+                    cameraCallback.clearFinished()
+                    cameraCallback.clearSync()
+                    var backgroundTask = VideoProcessTask(
+                            camera, it, cameraCallback, true
+                    ).apply {
+                        execute()
+                    }
+                    cameraCallbacks.add(cameraCallback)
+                    cameraTasks.add(backgroundTask)
                 }
-                cameraCallbacks.add(cameraCallback)
-                cameraTasks.add(backgroundTask)
+                this.cameraCallbacks = cameraCallbacks
+                this.cameraTasks = cameraTasks
             }
-            this.cameraCallbacks = cameraCallbacks
-            this.cameraTasks = cameraTasks
         }
     }
 
@@ -119,6 +123,7 @@ class CameraService : Service() {
         Log.i(LOG_TAG, "create service")
         dbHelper = DBOpenHelper(applicationContext, "my.db", null, 1)
         cameras = getInitialCameraList()
+        fileManager = FileManager(this)
         createNotificationChannel()
         startInForeground()
     }
