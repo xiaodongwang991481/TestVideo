@@ -66,11 +66,16 @@ class FileManager {
         return displayName
     }
 
-    public fun getCameraSource(data: Intent?) : String? {
+    public fun getCameraSource(context: Context, data: Intent?) : String? {
         val selectedImageUri = data?.getData()
         Log.i(LOG_TAG, "selected image uri: $selectedImageUri")
         if (selectedImageUri != null) {
             val selectedImagePath = getUriRealPath(selectedImageUri)
+            val takeFlags = data.flags and (
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            )
+            context.contentResolver.takePersistableUriPermission(selectedImageUri, takeFlags)
+
             Log.i(LOG_TAG, "selected image $selectedImagePath from $selectedImagePath")
             return selectedImagePath
         } else {
@@ -95,7 +100,7 @@ class FileManager {
         return path
     }
 
-    public fun getCameraDestUrl(data: Intent?) : String? {
+    public fun getCameraDestUrl(context: Context, data: Intent?) : String? {
         val selectedDir = data?.getData()
         Log.i(LOG_TAG, "selected dir: $selectedDir")
         selectedDir?.let {

@@ -144,7 +144,7 @@ class CameraDestEditActivity : AppCompatActivity() {
             data?.let {
                 when (requestCode) {
                     REQUEST_UPLOAD_GALLERY_VIDEO -> {
-                        var url = fileManager!!.getCameraDestUrl(it)
+                        var url = fileManager!!.getCameraDestUrl(this, it)
                         url?.let {
                             edit_camera_dest_url.setText(it)
                         }

@@ -64,7 +64,7 @@ class CameraEditActivity : AppCompatActivity() {
         override fun onLongClick(v: View?): Boolean {
             val intent = Intent()
             intent.type = "video/*"
-            intent.action = Intent.ACTION_GET_CONTENT
+            intent.action = Intent.ACTION_OPEN_DOCUMENT
             startActivityForResult(
                     Intent.createChooser(intent, "Choose a file"),
                     REQUEST_TAKE_GALLERY_VIDEO
@@ -321,13 +321,13 @@ class CameraEditActivity : AppCompatActivity() {
                     REQUEST_UPDATE_CAMERA_DEST -> updateCameraDest(cameraDest!!)
                     REQUEST_ADD_CAMERA_DEST -> addCameraDest(cameraDest!!)
                     REQUEST_TAKE_GALLERY_VIDEO -> {
-                        var source = fileManager!!.getCameraSource(it)
+                        var source = fileManager!!.getCameraSource(this, it)
                         source?.let {
                             edit_camera_source.setText(it)
                         }
                     }
                     REQUEST_UPLOAD_GALLERY_VIDEO -> {
-                        var url = fileManager!!.getCameraDestUrl(it)
+                        var url = fileManager!!.getCameraDestUrl(this, it)
                         url?.let {
                             camera_dest_url.setText(it)
                         }

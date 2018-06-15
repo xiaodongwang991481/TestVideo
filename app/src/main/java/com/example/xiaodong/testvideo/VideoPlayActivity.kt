@@ -99,7 +99,7 @@ class VideoPlayActivity : AppCompatActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (resultCode == Activity.RESULT_OK) {
             if (requestCode == REQUEST_TAKE_GALLERY_VIDEO) {
-                var source = fileManager!!.getCameraSource(data)
+                var source = fileManager!!.getCameraSource(this, data)
                 source?.let {
                     camera!!.source = source
                     stopBackgroundTask()
