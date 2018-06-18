@@ -72,7 +72,7 @@ class VideoPlayActivity : AppCompatActivity() {
         override fun onClick(v: View?) {
             val intent = Intent()
             intent.type = "video/*"
-            intent.action = Intent.ACTION_GET_CONTENT
+            intent.action = Intent.ACTION_OPEN_DOCUMENT
             startActivityForResult(
                     Intent.createChooser(intent, "Choose a file"),
                     REQUEST_TAKE_GALLERY_VIDEO

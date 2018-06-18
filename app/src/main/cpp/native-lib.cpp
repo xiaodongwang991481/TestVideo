@@ -10,6 +10,7 @@ using namespace std;
 
 extern "C" {
 #define __STDC_CONSTANT_MACROS
+#include <sys/types.h>
 #include <unistd.h>
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
@@ -25,6 +26,7 @@ extern "C" {
 #define LOGV(...) __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, __VA_ARGS__);
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__);
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__);
+#define LOGW(...) __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__);
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__);
 
 extern "C" JNIEXPORT jstring
@@ -35,7 +37,21 @@ Java_com_example_xiaodong_testvideo_FFmpeg_stringFromJNI(
     return env->NewStringUTF(avcodec_configuration());
 }
 
-
+void custom_log(void *ptr, int level, const char* fmt, va_list vl){
+    char buffer[1024];
+    vsprintf(buffer, fmt, vl);
+    if (level == AV_LOG_FATAL || level == AV_LOG_ERROR) {
+        LOGE("%s", buffer);
+    } else if (level == AV_LOG_WARNING) {
+        LOGW("%s", buffer);
+    } else if (level == AV_LOG_INFO) {
+        LOGI("%s", buffer);
+    } else if (level == AV_LOG_DEBUG) {
+        LOGD("%s", buffer);
+    } else {
+        LOGV("%s", buffer);
+    }
+}
 
 class CameraStreamHolder {
     jstring source;
@@ -295,6 +311,8 @@ public:
                 LOGE("failed to get fd.\n");
                 return false;
             }
+            int offset = lseek(fd, 0, SEEK_CUR);
+            LOGI("file descriptor %d current position: %d", fd, offset);
             camera_file_descriptors[key] = fd;
             LOGI("get file descriptor %d from %s.\n", fd, key.c_str());
         }
@@ -314,7 +332,7 @@ public:
         if (destLength != camera_dests.size()) {
             LOGE(
                     "dests properties size %d does not match camera dests %d.\n",
-                    destLength, camera_dests.size()
+                    destLength, (int)camera_dests.size()
             );
             return false;
         }
@@ -592,24 +610,34 @@ public:
             LOGE("failed to set file descriptors.\n");
         }
         LOGI("file descriptors are got.\n");
-        if (camera_file_descriptors.find(camera_source) != camera_file_descriptors.end()) {
-            int file_descriptor = camera_file_descriptors[camera_source];
-            char path[20];
-            sprintf(path, "pipe:%d", file_descriptor);
-            camera_source = string(path, strlen(path));
-            LOGI("reset camera source to %s.\n", camera_source.c_str());
-        }
+        //FFmpeg av_log() callback
+        av_log_set_callback(custom_log);
         if (camera_source_properties.find("input_format") != camera_source_properties.end()) {
             inputFormat = av_find_input_format(camera_source_properties["input_format"].c_str());
             LOGI("set input format.\n");
         }
-        // Open video file
+        if (camera_file_descriptors.find(camera_source) != camera_file_descriptors.end()) {
+            char path[20];
+            int fd = camera_file_descriptors[camera_source];
+            sprintf(path, "pipe:%d", fd);
+            camera_source = string(path, strlen(path));
+            LOGI("reset camera source to %s.\n", camera_source.c_str());
+        }
         int err_code;
         if ((err_code = avformat_open_input(&formatCtx, camera_source.c_str(), inputFormat,
                                             &options)) < 0) {
             LOGE("Couldn't open input %s.\n", camera_source.c_str());
             check_error(err_code);
             return false;
+        }
+        // LOGI(
+        //         "pos %ld bytes read: %ld, seek count %ld, streams %d",
+        //         avio_tell(formatCtx->pb),
+        //         formatCtx->pb->bytes_read, formatCtx->pb->seek_count,
+        //        formatCtx->nb_streams
+        // )
+        for (int i = 0; i < formatCtx->nb_streams; ++i) {
+            LOGI("stream %d codec %p", i, formatCtx->streams[i]->codec);
         }
         LOGI("camera input %s is opened.\n", camera_source.c_str());
         // Retrieve stream information
