@@ -15,14 +15,14 @@ class FFmpeg {
             sourceProperties: Map<String, String>?,
             destsProperties: Array<Map<String, String>?>?,
             fileDescriptors: Map<String, ParcelFileDescriptor>?,
-            base_pts: Long
+            base_pts: Long=0, sync: Boolean=false
     ): Boolean
 
     fun decode2(
             camera: Camera, fileManager: FileManager, bitmapCallback: BitmapCallback?=null,
             finishCallback: FinishCallback?=null,
             copyToDests: Boolean = false,
-            base_pts: Long=0
+            base_pts: Long=0, sync: Boolean=false
     ): Boolean {
         var source = camera.source
         var sourceProperties: MutableMap<String, String>? = null
@@ -63,26 +63,32 @@ class FFmpeg {
         }
         var callbackForBitmap = bitmapCallback
         if (bitmapCallback == null) {
-            if (sourceProperties != null && "bitmap_callback" in sourceProperties) {
-                var bitmapCallbackName = sourceProperties["bitmap_callback"]
-                callbackForBitmap = Class.forName(bitmapCallbackName).asSubclass(
-                        BitmapCallback::class.java
-                ).newInstance()
+            if (sourceProperties != null) {
+                var bitmapCallbackName = sourceProperties.remove("bitmap_callback")
+                if(bitmapCallbackName != null) {
+                    callbackForBitmap = Class.forName(bitmapCallbackName).asSubclass(
+                            BitmapCallback::class.java
+                    ).newInstance()
+                    callbackForBitmap.init(camera)
+                }
             }
         }
         var callbackForFinish = finishCallback
         if (finishCallback == null) {
-            if (sourceProperties != null && "finish_callback" in sourceProperties) {
-                var finishCallbackName = sourceProperties["finish_callback"]
-                callbackForFinish = Class.forName(finishCallbackName).asSubclass(
-                        FinishCallback::class.java
-                ).newInstance()
+            if (sourceProperties != null) {
+                var finishCallbackName = sourceProperties.remove("finish_callback")
+                if (finishCallbackName != null) {
+                    callbackForFinish = Class.forName(finishCallbackName).asSubclass(
+                            FinishCallback::class.java
+                    ).newInstance()
+                    callbackForFinish.init(camera)
+                }
             }
         }
         return decode(
                 source, dests, callbackForBitmap, callbackForFinish,
                 sourceProperties?.toMap(), destsProperties,
-                fileDescriptors?.toMap(), base_pts
+                fileDescriptors?.toMap(), base_pts, sync
         )
     }
 

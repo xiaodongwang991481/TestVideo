@@ -3,10 +3,15 @@ package com.example.xiaodong.testvideo
 import android.util.Log
 
 open class FinishCallbackForCamera : FinishCallback {
-    public val camera: Camera
+    public var camera: Camera? = null
     @Volatile private var finished = false
 
-    constructor(camera: Camera) {
+    constructor() {}
+    constructor(camera: Camera) : this() {
+        init(camera)
+    }
+
+    override fun init(camera: Camera) {
         this.camera = camera
     }
 

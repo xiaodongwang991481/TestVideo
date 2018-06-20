@@ -14,19 +14,22 @@ class VideoProcessTask : AsyncTask<Any, Any, Unit> {
     private val bitmapCameraCallback: BitmapCallback?
     private val finishCallbackForCamera: FinishCallbackForCamera?
     private val copyToDests: Boolean
+    private val sync: Boolean
 
     constructor(
             camera: Camera,
             fileManager: FileManager,
             bitmapCameraCallback: BitmapCallback?=null,
             finishCallbackForCamera: FinishCallbackForCamera?=null,
-            copyToDests: Boolean=false, last_pts: Long=0) : super() {
+            copyToDests: Boolean=false, last_pts: Long=0, sync: Boolean=false
+    ) : super() {
         this.camera = camera
         this.fileManager = fileManager
         this.bitmapCameraCallback = bitmapCameraCallback
         this.finishCallbackForCamera = finishCallbackForCamera
         this.copyToDests = copyToDests
         this.last_pts = last_pts
+        this.sync = sync
     }
 
     fun waitFinish() : Boolean {
@@ -45,7 +48,7 @@ class VideoProcessTask : AsyncTask<Any, Any, Unit> {
         var status = FFmpeg.getInstance().decode2(
                 camera, fileManager, bitmapCameraCallback, finishCallbackForCamera,
                 copyToDests,
-                last_pts
+                last_pts, sync
         )
         Log.i(LOG_TAG, "background task is finished with status=$status.")
         synchronized(lock) {

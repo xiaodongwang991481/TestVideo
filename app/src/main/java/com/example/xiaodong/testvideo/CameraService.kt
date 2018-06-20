@@ -62,7 +62,7 @@ class CameraService : Service() {
 
     private val binder: IBinder = CameraBinder()
 
-    fun processBitmap(camera: Camera, bitmap: Bitmap) {
+    fun processBitmap(camera: Camera?, bitmap: Bitmap) {
         Log.v(LOG_TAG, "process camera $camera callback with bitmap $bitmap")
     }
 
@@ -79,7 +79,7 @@ class CameraService : Service() {
                     finishCameraCallback.clearFinished()
                     var backgroundTask = VideoProcessTask(
                             camera, it, null, finishCameraCallback,
-                            true
+                            true, last_pts = 0, sync=false
                     ).apply {
                         execute()
                     }

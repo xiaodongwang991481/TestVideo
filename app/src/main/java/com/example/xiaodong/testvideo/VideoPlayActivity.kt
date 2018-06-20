@@ -141,7 +141,6 @@ class VideoPlayActivity : AppCompatActivity() {
             camera = intent.getParcelableExtra("camera")
             camera?.let {
                 bitmapCameraCallback = CallbackPlayVideo(it)
-                bitmapCameraCallback!!.setSync()
                 finishCameraCallback = FinishCallbackForCamera(it)
             }
             Log.i(LOG_TAG, "get camera $camera")
@@ -184,7 +183,7 @@ class VideoPlayActivity : AppCompatActivity() {
             fileManager?.let {
                 backgroundTask = backgroundTask ?: VideoProcessTask(
                         cit, it, bitmapCameraCallback, finishCameraCallback,
-                        last_pts = last_pts
+                        last_pts = last_pts, sync = true
                 ).apply {
                     execute()
                 }
