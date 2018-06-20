@@ -10,7 +10,8 @@ class FFmpeg {
      */
     external fun stringFromJNI(): String
     external fun decode(
-            source: String, dests: Array<String>?, callback: CallbackFromJNI?,
+            source: String, dests: Array<String>?, bitmapCallback: BitmapCallback?,
+            finishCallback: FinishCallback?,
             sourceProperties: Map<String, String>?,
             destsProperties: Array<Map<String, String>?>?,
             fileDescriptors: Map<String, ParcelFileDescriptor>?,
@@ -18,7 +19,8 @@ class FFmpeg {
     ): Boolean
 
     fun decode2(
-            camera: Camera, fileManager: FileManager, callback: CallbackFromJNI?=null,
+            camera: Camera, fileManager: FileManager, bitmapCallback: BitmapCallback?=null,
+            finishCallback: FinishCallback?=null,
             copyToDests: Boolean = false,
             base_pts: Long=0
     ): Boolean {
@@ -59,8 +61,27 @@ class FFmpeg {
         if (fileDescriptors!!.size == 0) {
             fileDescriptors = null
         }
+        var callbackForBitmap = bitmapCallback
+        if (bitmapCallback == null) {
+            if (sourceProperties != null && "bitmap_callback" in sourceProperties) {
+                var bitmapCallbackName = sourceProperties["bitmap_callback"]
+                callbackForBitmap = Class.forName(bitmapCallbackName).asSubclass(
+                        BitmapCallback::class.java
+                ).newInstance()
+            }
+        }
+        var callbackForFinish = finishCallback
+        if (finishCallback == null) {
+            if (sourceProperties != null && "finish_callback" in sourceProperties) {
+                var finishCallbackName = sourceProperties["finish_callback"]
+                callbackForFinish = Class.forName(finishCallbackName).asSubclass(
+                        FinishCallback::class.java
+                ).newInstance()
+            }
+        }
         return decode(
-                source, dests, callback, sourceProperties?.toMap(), destsProperties,
+                source, dests, callbackForBitmap, callbackForFinish,
+                sourceProperties?.toMap(), destsProperties,
                 fileDescriptors?.toMap(), base_pts
         )
     }

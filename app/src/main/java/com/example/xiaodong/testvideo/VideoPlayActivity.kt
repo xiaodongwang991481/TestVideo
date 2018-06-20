@@ -57,17 +57,6 @@ class VideoPlayActivity : AppCompatActivity() {
     private val mHideRunnable = Runnable { hide() }
     private var fileManager: FileManager? = null
 
-    /**
-     * Touch listener to use for in-layout UI controls to delay hiding the
-     * system UI. This is to prevent the jarring behavior of controls going away
-     * while interacting with activity UI.
-     */
-    // private val mDelayHideTouchListener = View.OnTouchListener { _, _ ->
-    //     if (AUTO_HIDE) {
-    //         delayedHide(AUTO_HIDE_DELAY_MILLIS)
-    //   }
-    //     false
-    // }
     inner class SelectVideo : View.OnClickListener {
         override fun onClick(v: View?) {
             val intent = Intent()
@@ -82,7 +71,7 @@ class VideoPlayActivity : AppCompatActivity() {
 
     private var backgroundTask: VideoProcessTask? = null
 
-    inner class CallbackPlayVideo(camera: Camera) : CallbackForCamera(camera) {
+    inner class CallbackPlayVideo(camera: Camera) : BitmapCallbackForCamera(camera) {
         override fun bitmapCallback(bitmap: Bitmap?) {
             super.bitmapCallback(bitmap)
             bitmap?.let {
@@ -91,7 +80,8 @@ class VideoPlayActivity : AppCompatActivity() {
         }
     }
 
-    var cameraCallback: CallbackForCamera? = null
+    var bitmapCameraCallback: BitmapCallbackForCamera? = null
+    var finishCameraCallback: FinishCallbackForCamera? = null
     var camera: Camera? = null
     var last_pts: Long = 0
 
@@ -125,7 +115,19 @@ class VideoPlayActivity : AppCompatActivity() {
         var canvas = camera_play.holder.lockCanvas()
         canvas?.let {
             var srcRect = Rect(0, 0, bitmap.width, bitmap.height)
-            var destRect = Rect(0, 0, camera_play.measuredWidth, camera_play.measuredHeight)
+            var rectWidth = camera_play.measuredWidth
+            var rectHeight = camera_play.measuredHeight
+            if (
+                    rectWidth.toFloat() / bitmap.width.toFloat() >
+                    rectHeight.toFloat() / bitmap.height.toFloat()
+            ) {
+                rectWidth = rectHeight * bitmap.width / bitmap.height
+            } else {
+                rectHeight = rectWidth * bitmap.height / bitmap.width
+            }
+            val left = (camera_play.measuredWidth - rectWidth) / 2
+            val top = (camera_play.measuredHeight - rectHeight) / 2
+            var destRect = Rect(left, top, left + rectWidth, top + rectHeight)
             it.drawBitmap(bitmap, srcRect, destRect, null)
             camera_play.holder.unlockCanvasAndPost(it)
         }
@@ -138,8 +140,9 @@ class VideoPlayActivity : AppCompatActivity() {
         if (intent.hasExtra("camera")) {
             camera = intent.getParcelableExtra("camera")
             camera?.let {
-                cameraCallback = CallbackPlayVideo(it)
-                cameraCallback!!.setSync()
+                bitmapCameraCallback = CallbackPlayVideo(it)
+                bitmapCameraCallback!!.setSync()
+                finishCameraCallback = FinishCallbackForCamera(it)
             }
             Log.i(LOG_TAG, "get camera $camera")
         }
@@ -149,6 +152,7 @@ class VideoPlayActivity : AppCompatActivity() {
 
         // Set up the user interaction to manually show or hide the system UI.
         camera_play.setOnClickListener { toggle() }
+        camera_play.holder.setKeepScreenOn(true)
 
         // Upon interacting with UI controls, delay any scheduled hide()
         // operations to prevent the jarring behavior of controls going away
@@ -172,14 +176,15 @@ class VideoPlayActivity : AppCompatActivity() {
 
     fun startBackgroundTask() {
         Log.i(LOG_TAG, "start background task")
-        cameraCallback?.let {
+        finishCameraCallback?.let {
             it.clearFinished()
         }
         camera?.let {
             cit ->
             fileManager?.let {
                 backgroundTask = backgroundTask ?: VideoProcessTask(
-                        cit, it, cameraCallback, last_pts = last_pts
+                        cit, it, bitmapCameraCallback, finishCameraCallback,
+                        last_pts = last_pts
                 ).apply {
                     execute()
                 }
@@ -189,7 +194,7 @@ class VideoPlayActivity : AppCompatActivity() {
 
     fun stopBackgroundTask() {
         Log.i(LOG_TAG, "stop background task")
-        cameraCallback?.let {
+        finishCameraCallback?.let {
             it.setFinished()
         }
         backgroundTask?.apply {
@@ -230,7 +235,8 @@ class VideoPlayActivity : AppCompatActivity() {
         }
         camera = savedInstanceState?.getParcelable("camera")
         camera?.let {
-            cameraCallback = CallbackForCamera(it)
+            bitmapCameraCallback = BitmapCallbackForCamera(it)
+            finishCameraCallback = FinishCallbackForCamera(it)
         }
         last_pts = savedInstanceState?.getLong("last_pts") ?: 0
     }

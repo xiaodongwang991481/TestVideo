@@ -23,7 +23,7 @@ class CameraService : Service() {
         return dbHelper!!.getAllCameras()
     }
 
-    @Volatile private var cameraCallbacks: ArrayList<CallbackForCamera>? = null
+    @Volatile private var cameraCallbacks: ArrayList<FinishCallbackForCamera>? = null
     @Volatile private var cameraTasks: ArrayList<VideoProcessTask>? = null
 
     private fun startInForeground() {
@@ -45,7 +45,7 @@ class CameraService : Service() {
         startForeground(101, notification)
     }
 
-    inner class CallbackProcessVideo(camera: Camera) : CallbackForCamera(camera) {
+    inner class CallbackProcessVideo(camera: Camera) : BitmapCallbackForCamera(camera) {
         override fun bitmapCallback(bitmap: Bitmap?) {
             super.bitmapCallback(bitmap)
             bitmap?.let {
@@ -71,19 +71,19 @@ class CameraService : Service() {
         cameras?.let {
             cit ->
             fileManager?.let {
-                var cameraCallbacks = ArrayList<CallbackForCamera>()
+                var cameraCallbacks = ArrayList<FinishCallbackForCamera>()
                 var cameraTasks = ArrayList<VideoProcessTask>()
                 for (camera in cit) {
                     Log.i(LOG_TAG, "create background task for camera $camera")
-                    var cameraCallback = CallbackProcessVideo(camera)
-                    cameraCallback.clearFinished()
-                    cameraCallback.clearSync()
+                    var finishCameraCallback = FinishCallbackForCamera(camera)
+                    finishCameraCallback.clearFinished()
                     var backgroundTask = VideoProcessTask(
-                            camera, it, cameraCallback, true
+                            camera, it, null, finishCameraCallback,
+                            true
                     ).apply {
                         execute()
                     }
-                    cameraCallbacks.add(cameraCallback)
+                    cameraCallbacks.add(finishCameraCallback)
                     cameraTasks.add(backgroundTask)
                 }
                 this.cameraCallbacks = cameraCallbacks

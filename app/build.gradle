@@ -72,6 +72,8 @@ android {
         targetCompatibility JavaVersion.VERSION_1_8
     }
     buildToolsVersion '27.0.3'
+    productFlavors {
+    }
 }
 
 // Map for the version code that gives each ABI a value.

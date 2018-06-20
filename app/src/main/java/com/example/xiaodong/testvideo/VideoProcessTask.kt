@@ -11,17 +11,20 @@ class VideoProcessTask : AsyncTask<Any, Any, Unit> {
     @Volatile var last_pts: Long = 0
     private val lock = java.lang.Object()
     @Volatile private var finished = false
-    private val cameraCallback: CallbackForCamera?
+    private val bitmapCameraCallback: BitmapCallback?
+    private val finishCallbackForCamera: FinishCallbackForCamera?
     private val copyToDests: Boolean
 
     constructor(
             camera: Camera,
             fileManager: FileManager,
-            cameraCallback: CallbackForCamera?=null,
+            bitmapCameraCallback: BitmapCallback?=null,
+            finishCallbackForCamera: FinishCallbackForCamera?=null,
             copyToDests: Boolean=false, last_pts: Long=0) : super() {
         this.camera = camera
         this.fileManager = fileManager
-        this.cameraCallback = cameraCallback
+        this.bitmapCameraCallback = bitmapCameraCallback
+        this.finishCallbackForCamera = finishCallbackForCamera
         this.copyToDests = copyToDests
         this.last_pts = last_pts
     }
@@ -40,7 +43,7 @@ class VideoProcessTask : AsyncTask<Any, Any, Unit> {
     override fun doInBackground(vararg params: Any?): Unit {
         Log.i(LOG_TAG, "background task is started.")
         var status = FFmpeg.getInstance().decode2(
-                camera, fileManager, cameraCallback,
+                camera, fileManager, bitmapCameraCallback, finishCallbackForCamera,
                 copyToDests,
                 last_pts
         )
