@@ -996,33 +996,51 @@ public:
             AVPacket& packet,
             AVFormatContext* oformatCtx,
             AVCodecContext* ocodecCtx,
-            AVStream* ostream
+            AVStream* ostream,
+            const string& camera_dest
     ) {
-        opacket->pts = av_rescale_q_rnd(
-                packet.pts, videoStream->time_base, ostream->time_base,
-                AVRounding(AV_ROUND_NEAR_INF|AV_ROUND_PASS_MINMAX)
-        );
-        opacket->dts = av_rescale_q_rnd(
-                packet.dts, videoStream->time_base, ostream->time_base,
-                AVRounding(AV_ROUND_NEAR_INF|AV_ROUND_PASS_MINMAX)
-        );
-        opacket->duration = av_rescale_q(
-                packet.duration, videoStream->time_base, ostream->time_base
-        );
-        LOGV(
-                "packet %d mux pts=%ld dts=%ld duration=%ld.\n",
-                ocodecCtx->frame_number, opacket->pts, opacket->dts, opacket->duration
-        );
-        if((err_code = av_interleaved_write_frame(oformatCtx, opacket)) < 0) {
-            LOGE("failed to write frame: %s.\n", camera_dest.c_str());
-            check_error(err_code);
-            destsStatus[i] = false;
-        } else {
-            LOGV("write one frame: %s.\n", camera_dest.c_str());
+        int err_code;
+        bool status = true;
+        if ((err_code = avcodec_send_frame(ocodecCtx, decodedFrame)) < 0) {
+            LOGE("failed to encode frame %s", camera_dest.c_str());
+            return false;
         }
-        ocodecCtx->frame_number++;
-        av_packet_unref(opacket);
-        return true;
+        while (status && err_code >= 0) {
+            if ((err_code = avcodec_receive_packet(ocodecCtx, opacket)) < 0) {
+                if (err_code != AVERROR(EAGAIN) && err_code != AVERROR_EOF) {
+                    LOGE("failed to receive packet.\n");
+                    check_error(err_code);
+                    return false;
+                }
+                break;
+            }
+            LOGV("receive one frame.\n");
+            opacket->pts = av_rescale_q_rnd(
+                    packet.pts, videoStream->time_base, ostream->time_base,
+                    AVRounding(AV_ROUND_NEAR_INF|AV_ROUND_PASS_MINMAX)
+            );
+            opacket->dts = av_rescale_q_rnd(
+                    packet.dts, videoStream->time_base, ostream->time_base,
+                    AVRounding(AV_ROUND_NEAR_INF|AV_ROUND_PASS_MINMAX)
+            );
+            opacket->duration = av_rescale_q(
+                    packet.duration, videoStream->time_base, ostream->time_base
+            );
+            LOGV(
+                    "packet %d mux pts=%ld dts=%ld duration=%ld.\n",
+                    ocodecCtx->frame_number, opacket->pts, opacket->dts, opacket->duration
+            );
+            if((err_code = av_interleaved_write_frame(oformatCtx, opacket)) < 0) {
+                LOGE("failed to write frame: %s.\n", camera_dest.c_str());
+                check_error(err_code);
+                status = false;
+            } else {
+                LOGV("write one frame: %s.\n", camera_dest.c_str());
+                ocodecCtx->frame_number++;
+            }
+            av_packet_unref(opacket);
+        }
+        return status;
     }
 
     bool decode_packet(
@@ -1035,7 +1053,7 @@ public:
             int64_t callback_per_duration
     ) {
         AVRational ms_rational = av_make_q(1, AV_TIME_BASE);
-        int err_code;
+        int err_code = 0;
         if ((err_code = avcodec_send_packet(codecCtx, &packet)) < 0) {
             if (err_code != EAGAIN) {
                 LOGE("failed to send packet.\n");
@@ -1047,18 +1065,18 @@ public:
         int64_t base_duration_ms = av_rescale_q(
                 *base_pts, videoStream->time_base, ms_rational
         );
-        while (true) {
+        while (err_code < 0) {
             if ((err_code = avcodec_receive_frame(
                     codecCtx, decodedFrame
             )) < 0) {
-                if (err_code != AVERROR(EAGAIN)) {
-                    LOGE("failed to receive packet.\n");
+                if (err_code != AVERROR(EAGAIN) && err_code != AVERROR_EOF) {
+                    LOGE("failed to receive frame.\n");
                     check_error(err_code);
                     return false;
                 }
                 break;
             }
-            LOGV("receive one packet.\n");
+            LOGV("receive one frame.\n");
             *decoded_frames++;
             int64_t duration_ms_current = av_rescale_q(
                     packet.pts, videoStream->time_base, ms_rational
