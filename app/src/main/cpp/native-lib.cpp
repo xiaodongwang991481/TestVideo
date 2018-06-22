@@ -670,6 +670,10 @@ public:
             return false;
         }
         LOGI("find video stream %d.\n", videoStreamIndex);
+        if (videoStream->codec->pix_fmt == AV_PIX_FMT_NONE) {
+            LOGE("no proper pix fmt found.\n");
+            return false;
+        }
         // Get a pointer to the codec context for the video stream
         // codecCtx = videoStream->codec;
         // Copy context
