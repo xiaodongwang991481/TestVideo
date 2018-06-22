@@ -5,13 +5,9 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.os.Binder
-import android.os.Bundle
 import android.os.IBinder
 import android.util.Log
-import kotlinx.android.synthetic.main.activity_video_play.*
 import android.os.Build
-import android.support.v4.app.NotificationCompat
-
 
 class CameraService : Service() {
 
@@ -45,15 +41,6 @@ class CameraService : Service() {
         startForeground(101, notification)
     }
 
-    inner class CallbackProcessVideo(camera: Camera) : BitmapCallbackForCamera(camera) {
-        override fun bitmapCallback(bitmap: Bitmap?) {
-            super.bitmapCallback(bitmap)
-            bitmap?.let {
-                this@CameraService.processBitmap(camera, bitmap)
-            }
-        }
-    }
-
     inner class CameraBinder() : Binder() {
         fun getStatus(): Boolean {
             return true
@@ -79,7 +66,7 @@ class CameraService : Service() {
                     finishCameraCallback.clearFinished()
                     var backgroundTask = VideoProcessTask(
                             camera, it, null, finishCameraCallback,
-                            true, last_pts = 0, sync=false
+                            true, lastPts = 0, sync=false
                     ).apply {
                         execute()
                     }
@@ -163,7 +150,7 @@ class CameraService : Service() {
             val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
             val mChannel = NotificationChannel(
                     NOTIFICATION_CHANNEL_ID, NOTIFICATION_CHANNEL_NAME,
-                    NotificationManager.IMPORTANCE_MAX
+                    NotificationManager.IMPORTANCE_HIGH
             )
             mChannel.enableLights(true)
             // Sets the notification light color for notifications posted to this

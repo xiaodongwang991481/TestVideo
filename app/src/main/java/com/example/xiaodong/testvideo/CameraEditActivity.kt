@@ -1,26 +1,15 @@
 package com.example.xiaodong.testvideo
 
 import android.app.Activity
-import android.content.Context
 import android.content.Intent
 import android.graphics.Color
-import android.net.Uri
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
-import android.os.PersistableBundle
-import android.provider.MediaStore
 import android.util.Log
 import android.view.View
 import android.widget.AdapterView
-import kotlinx.android.synthetic.main.activity_camera_dest_edit.*
 import kotlinx.android.synthetic.main.activity_camera_edit.*
-import android.support.v4.app.ActivityCompat.startActivityForResult
-import android.provider.DocumentsContract
-import android.content.ContentResolver
-import android.provider.DocumentsContract.Document.COLUMN_MIME_TYPE
 import android.widget.Toast
-import java.io.File
-import java.net.URI
 
 
 class CameraEditActivity : AppCompatActivity() {
@@ -175,14 +164,14 @@ class CameraEditActivity : AppCompatActivity() {
         camera_source_properties.setAdapter(cameraSourcePropertyAdapter!!)
         add_camera_source_property.setOnClickListener(AddCameraSourceProperty())
         cameraDestAdapter = CameraDestAdapter(this, cameraDests!!)
-        var dest_header = layoutInflater.inflate(
+        var destHeader = layoutInflater.inflate(
                 R.layout.camera_dest_header, edit_camera_dests, false
         ) as View
-        edit_camera_dests.addHeaderView(dest_header)
-        var dest_footer = layoutInflater.inflate(
+        edit_camera_dests.addHeaderView(destHeader)
+        var destFooter = layoutInflater.inflate(
                 R.layout.listview_footer, edit_camera_dests, false
         ) as View
-        edit_camera_dests.addFooterView(dest_footer)
+        edit_camera_dests.addFooterView(destFooter)
         edit_camera_dests.setAdapter(cameraDestAdapter!!)
         edit_camera_dests.setOnItemLongClickListener(EditCameraDest())
         val groupIndicator = resources.getDrawable(R.drawable.expandible_group_indicator, this.theme)

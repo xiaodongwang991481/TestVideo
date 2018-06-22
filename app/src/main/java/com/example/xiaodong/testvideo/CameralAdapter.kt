@@ -9,13 +9,6 @@ import android.widget.TextView
 
 class CameraAdapter(val context: MainActivity, val cameras: ArrayList<Camera>) : BaseAdapter() {
 
-    inner class EditCamera(val camera: Camera) : View.OnLongClickListener {
-        override fun onLongClick(v: View?): Boolean {
-            context.onButtonClickEdit(camera)
-            return true
-        }
-    }
-
     inner class DeleteCamera(val camera: Camera) : View.OnClickListener {
         override fun onClick(v: View?) {
             context.onButtonClickDelete(camera)

@@ -7,11 +7,8 @@ import android.os.Environment
 import android.provider.DocumentsContract
 import android.provider.MediaStore
 import android.util.Log
-import android.os.Environment.getExternalStorageDirectory
 import android.os.ParcelFileDescriptor
-import android.provider.OpenableColumns
 import android.widget.Toast
-import java.io.FileDescriptor
 import java.text.SimpleDateFormat
 import java.util.*
 import android.content.ContentUris
@@ -49,30 +46,7 @@ class FileManager {
         return context.contentResolver.openFileDescriptor(contentUri, "r")
     }
 
-    fun getFileDisplayName(contentPath: String): String? {
-        val contentUri = Uri.parse(contentPath)
-        val cursor = context.contentResolver.query(
-                contentUri, null, null,
-                null, null, null
-        )
-        var displayName: String? = null
-        try {
-            if (cursor != null && cursor.moveToFirst()) {
-                displayName = cursor.getString(
-                        cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                )
-            }
-        } catch (e: Exception) {
-            Log.e(LOG_TAG, "failed to open cursor")
-            Toast.makeText(context, "failed to open cursor", Toast.LENGTH_SHORT).show()
-            throw e
-        } finally {
-            cursor.close()
-        }
-        return displayName
-    }
-
-    public fun getCameraSource(context: Context, data: Intent?) : String? {
+    fun getCameraSource(context: Context, data: Intent?) : String? {
         val selectedImageUri = data?.getData()
         Log.i(LOG_TAG, "selected image uri: $selectedImageUri")
         if (selectedImageUri != null) {
@@ -128,7 +102,6 @@ class FileManager {
     /**
      * Method for return file path of Gallery image
      *
-     * @param context
      * @param uri
      * @return path of the selected image file from gallery
      */

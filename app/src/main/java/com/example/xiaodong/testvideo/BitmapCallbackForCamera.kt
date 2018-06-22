@@ -4,7 +4,7 @@ import android.graphics.Bitmap
 import android.util.Log
 
 open class BitmapCallbackForCamera : BitmapCallback {
-    public var camera: Camera? = null
+    var camera: Camera? = null
 
     constructor() {}
 

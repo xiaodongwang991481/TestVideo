@@ -8,25 +8,10 @@ import android.view.View
 import android.support.v4.app.NavUtils
 import android.util.Log
 import android.view.MenuItem
-import kotlinx.android.synthetic.main.activity_camera_edit.*
-import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.activity_video_play.*
-import android.provider.MediaStore
 import android.content.Intent
-import android.support.v4.app.ActivityCompat.startActivityForResult
-import android.R.attr.data
-import android.net.Uri
-import android.os.Environment.getExternalStorageDirectory
-import android.content.ContentUris
-import android.provider.DocumentsContract
-import android.os.Build
-import android.content.ContentResolver
-import android.content.Context
 import android.graphics.*
-import android.os.Environment
 import android.widget.Toast
-import kotlinx.android.synthetic.main.cameras_layout.*
-
 
 /**
  * An example full-screen activity that shows and hides the system UI (i.e.
@@ -83,7 +68,7 @@ class VideoPlayActivity : AppCompatActivity() {
     var bitmapCameraCallback: BitmapCallbackForCamera? = null
     var finishCameraCallback: FinishCallbackForCamera? = null
     var camera: Camera? = null
-    var last_pts: Long = 0
+    var lastPts: Long = 0
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
@@ -169,21 +154,19 @@ class VideoPlayActivity : AppCompatActivity() {
             camera?.let {
                 outState.putParcelable("camera", camera)
             }
-            outState.putLong("last_pts", last_pts)
+            outState.putLong("last_pts", lastPts)
         }
     }
 
     fun startBackgroundTask() {
         Log.i(LOG_TAG, "start background task")
-        finishCameraCallback?.let {
-            it.clearFinished()
-        }
+        finishCameraCallback?.clearFinished()
         camera?.let {
             cit ->
             fileManager?.let {
                 backgroundTask = backgroundTask ?: VideoProcessTask(
                         cit, it, bitmapCameraCallback, finishCameraCallback,
-                        last_pts = last_pts, sync = true
+                        lastPts = lastPts, sync = true
                 ).apply {
                     execute()
                 }
@@ -193,12 +176,8 @@ class VideoPlayActivity : AppCompatActivity() {
 
     fun stopBackgroundTask() {
         Log.i(LOG_TAG, "stop background task")
-        finishCameraCallback?.let {
-            it.setFinished()
-        }
-        backgroundTask?.apply {
-            waitFinish()
-        }
+        finishCameraCallback?.setFinished()
+        backgroundTask?.waitFinish()
         backgroundTask = null
     }
 
@@ -237,7 +216,7 @@ class VideoPlayActivity : AppCompatActivity() {
             bitmapCameraCallback = BitmapCallbackForCamera(it)
             finishCameraCallback = FinishCallbackForCamera(it)
         }
-        last_pts = savedInstanceState?.getLong("last_pts") ?: 0
+        lastPts = savedInstanceState?.getLong("last_pts") ?: 0
     }
 
     override fun onPostCreate(savedInstanceState: Bundle?) {

@@ -2,13 +2,12 @@ package com.example.xiaodong.testvideo
 
 import android.os.AsyncTask
 import android.util.Log
-import kotlinx.android.synthetic.main.activity_video_play.*
 
 class VideoProcessTask : AsyncTask<Any, Any, Unit> {
 
     val camera: Camera
     val fileManager: FileManager
-    @Volatile var last_pts: Long = 0
+    @Volatile var lastPts: Long = 0
     private val lock = java.lang.Object()
     @Volatile private var finished = false
     private val bitmapCameraCallback: BitmapCallback?
@@ -21,14 +20,14 @@ class VideoProcessTask : AsyncTask<Any, Any, Unit> {
             fileManager: FileManager,
             bitmapCameraCallback: BitmapCallback?=null,
             finishCallbackForCamera: FinishCallbackForCamera?=null,
-            copyToDests: Boolean=false, last_pts: Long=0, sync: Boolean=false
+            copyToDests: Boolean=false, lastPts: Long=0, sync: Boolean=false
     ) : super() {
         this.camera = camera
         this.fileManager = fileManager
         this.bitmapCameraCallback = bitmapCameraCallback
         this.finishCallbackForCamera = finishCallbackForCamera
         this.copyToDests = copyToDests
-        this.last_pts = last_pts
+        this.lastPts = lastPts
         this.sync = sync
     }
 
@@ -43,12 +42,12 @@ class VideoProcessTask : AsyncTask<Any, Any, Unit> {
         return true
     }
 
-    override fun doInBackground(vararg params: Any?): Unit {
+    override fun doInBackground(vararg params: Any?) {
         Log.i(LOG_TAG, "background task is started.")
         var status = FFmpeg.getInstance().decode2(
                 camera, fileManager, bitmapCameraCallback, finishCallbackForCamera,
                 copyToDests,
-                last_pts, sync
+                lastPts, sync
         )
         Log.i(LOG_TAG, "background task is finished with status=$status.")
         synchronized(lock) {
@@ -60,10 +59,12 @@ class VideoProcessTask : AsyncTask<Any, Any, Unit> {
     }
 
     override fun onPostExecute(result: Unit?) {
+        Log.i(LOG_TAG, "Post execute")
         super.onPostExecute(result)
     }
 
     override fun onCancelled() {
+        Log.i(LOG_TAG, "cancelled")
         super.onCancelled()
     }
 

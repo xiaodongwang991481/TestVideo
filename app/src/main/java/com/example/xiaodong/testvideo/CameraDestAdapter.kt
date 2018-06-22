@@ -11,18 +11,10 @@ import android.widget.TextView
 class CameraDestAdapter(
         val context: CameraEditActivity, val cameraDests: ArrayList<CameraDest>
 ) : BaseExpandableListAdapter() {
-    private val LOG_TAG = "CameraDestAdapter"
 
     inner class DeleteCameraDest(val cameraDest: CameraDest) : View.OnClickListener {
         override fun onClick(v: View?) {
             context.onButtonClickDeleteDest(cameraDest)
-        }
-    }
-
-    inner class EditCameraDest(val cameraDest: CameraDest) : View.OnLongClickListener {
-        override fun onLongClick(v: View?): Boolean {
-            context.onButtonClickEditDest(cameraDest)
-            return true
         }
     }
 
@@ -104,5 +96,9 @@ class CameraDestAdapter(
         var width = context.groupIndicatorWidth
         view.setPadding(width, 0, 0, 0)
         return view
+    }
+
+    companion object {
+        private val LOG_TAG = "CameraDestAdapter"
     }
 }

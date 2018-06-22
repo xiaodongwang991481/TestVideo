@@ -1,14 +1,12 @@
 package com.example.xiaodong.testvideo
 
 import android.os.ParcelFileDescriptor
-import java.io.FileDescriptor
 
 class FFmpeg {
     /**
      * A native method that is implemented by the 'native-lib' native library,
      * which is packaged with this application.
      */
-    external fun stringFromJNI(): String
     external fun decode(
             source: String, dests: Array<String>?, bitmapCallback: BitmapCallback?,
             finishCallback: FinishCallback?,
@@ -39,24 +37,24 @@ class FFmpeg {
         var dests: Array<String>? = null
         var destsProperties: Array<Map<String, String>? >? = null
         if (copyToDests) {
-            var camera_dests = ArrayList<String>()
-            var camera_dests_properties = ArrayList<Map<String, String>? >()
+            var cameraDests = ArrayList<String>()
+            var cameraDestsProperties = ArrayList<Map<String, String>? >()
             for (dest in camera.dests) {
-                camera_dests.add(dest.url)
-                var dest_properties: MutableMap<String, String>? = null
+                cameraDests.add(dest.url)
+                var destProperties: MutableMap<String, String>? = null
                 if (dest.dest_properties.size > 0) {
-                    dest_properties = mutableMapOf()
+                    destProperties = mutableMapOf()
                     for (property in dest.dest_properties) {
-                        dest_properties.put(property.name, property.value)
+                        destProperties.put(property.name, property.value)
                     }
                 }
-                camera_dests_properties.add(dest_properties?.toMap())
+                cameraDestsProperties.add(destProperties?.toMap())
                 if (dest.url.startsWith("content://")) {
                     fileDescriptors!!.put(dest.url, fileManager.getFileDescriptior(dest.url))
                 }
             }
-            dests = camera_dests.toTypedArray()
-            destsProperties = camera_dests_properties.toTypedArray()
+            dests = cameraDests.toTypedArray()
+            destsProperties = cameraDestsProperties.toTypedArray()
         }
         if (fileDescriptors!!.size == 0) {
             fileDescriptors = null
@@ -94,7 +92,7 @@ class FFmpeg {
 
     companion object {
         @JvmStatic
-        external fun initJNI(): Unit
+        external fun initJNI()
 
         private val singleton = FFmpeg()
 

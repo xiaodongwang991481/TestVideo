@@ -38,7 +38,8 @@ extern "C" JNIEXPORT jstring
 JNICALL
 Java_com_example_xiaodong_testvideo_FFmpeg_stringFromJNI(
         JNIEnv *env,
-        jobject /* this */) {
+        jobject /* this */
+) {
     return env->NewStringUTF(avcodec_configuration());
 }
 
@@ -494,7 +495,7 @@ public:
         int extra_size = (uint64_t)icodec->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE;
         ocodec->extradata = (uint8_t*)av_mallocz(extra_size);
         memcpy(ocodec->extradata, icodec->extradata, icodec->extradata_size);
-        ocodec->extradata_size= icodec->extradata_size;
+        ocodec->extradata_size = icodec->extradata_size;
 
         // Some formats want stream headers to be separate.
         ocodec->codec_tag = 0;
@@ -503,7 +504,7 @@ public:
         }
     }
 
-    void copy_stream_info(AVStream* ostream, AVStream* istream, AVFormatContext* ofmt_ctx){
+    void copy_stream_info(AVStream* ostream, AVStream* istream){
         ostream->id = istream->id;
         // avcodec_parameters_copy(ostream->codecpar, istream->codecpar);
     }
@@ -514,6 +515,7 @@ public:
         ocodec->height = icodec->height;
         ocodec->time_base = icodec->time_base;
         ocodec->framerate = icodec->framerate;
+        ocodec->max_b_frames = icodec->max_b_frames;
         ocodec->gop_size = icodec->gop_size;
         ocodec->pix_fmt = icodec->pix_fmt;
     }
@@ -525,23 +527,21 @@ public:
         ocodec->channels = icodec->channels;
     }
 
-    void copy_video_stream_info(AVStream* ostream, AVStream* istream, AVFormatContext* ofmt_ctx){
-        copy_video_codec_info(ostream->codec, istream->codec, ofmt_ctx);
-        copy_stream_info(ostream, istream, ofmt_ctx);
+    void copy_video_stream_info(AVStream* ostream, AVStream* istream){
+        copy_stream_info(ostream, istream);
         ostream->time_base = istream->time_base;
         ostream->r_frame_rate = istream->r_frame_rate;
         ostream->avg_frame_rate = istream->avg_frame_rate;
     }
 
-    void copy_audio_stream_info(AVStream* ostream, AVStream* istream, AVFormatContext* ofmt_ctx){
-        copy_audio_codec_info(ostream->codec, istream->codec, ofmt_ctx);
-        copy_stream_info(ostream, istream, ofmt_ctx);
+    void copy_audio_stream_info(AVStream* ostream, AVStream* istream){
+        copy_stream_info(ostream, istream);
     }
 
     void check_error(int err_code) {
-        void* buf = av_malloc(1024);
+        char* buf = (char*)av_malloc(1024);
         if (buf != NULL) {
-            av_strerror(err_code, (char *) buf, 1024);
+            av_strerror(err_code, buf, 1024);
             LOGE("error code %d: %s.\n", err_code, buf);
             av_free(buf);
         } else {
@@ -649,18 +649,21 @@ public:
         if (pCodec->pix_fmts != NULL) {
             int i = 0;
             while (true) {
-                LOGI("codec %d pix fmt %d.\n", i, pCodec->pix_fmts[i]);
+                LOGI(
+                        "%s codec %d pix fmt %d.\n",
+                        camera_source.c_str(), i, pCodec->pix_fmts[i]
+                );
                 if (pCodec->pix_fmts[i] == AV_PIX_FMT_NONE) {
                     break;
                 }
                 i += 1;
             }
             if (i == 0) {
-                LOGE("no proper pix fmt found.\n");
+                LOGE("%s no proper pix fmt found in codec.\n", camera_source.c_str());
                 return false;
             }
         } else {
-            LOGE("codec pix fmts is null.\n");
+            LOGE("%s codec pix fmts is null.\n", camera_source.c_str());
             return false;
         }
         videoStreamIndex = err_code;
@@ -671,7 +674,7 @@ public:
         }
         LOGI("find video stream %d.\n", videoStreamIndex);
         if (videoStream->codec->pix_fmt == AV_PIX_FMT_NONE) {
-            LOGE("no proper pix fmt found.\n");
+            LOGE("%s no proper pix fmt found in codec context.\n", camera_source.c_str());
             return false;
         }
         // Get a pointer to the codec context for the video stream
@@ -698,7 +701,7 @@ public:
         LOGI("get width %d.\n", width);
         height = codecCtx->height;
         LOGI("get height %d.\n", height);
-        LOGI("pix_fmt=%p.\n", codecCtx->pix_fmt);
+        LOGI("pix_fmt=%d.\n", codecCtx->pix_fmt);
         double timebase = av_q2d(codecCtx->time_base);
         LOGI("get codec timebase %lf.\n", timebase);
         int64_t bit_rate = codecCtx->bit_rate;
@@ -794,8 +797,35 @@ public:
                     );
                     return false;
                 }
+                if (outputCodec->pix_fmts != NULL) {
+                    int j = 0;
+                    while (true) {
+                        LOGI(
+                                "%s codec %d pix fmt %d.\n",
+                                camera_dest.c_str(), j, outputCodec->pix_fmts[i]
+                        );
+                        if (outputCodec->pix_fmts[j] == AV_PIX_FMT_NONE) {
+                            break;
+                        }
+                        j += 1;
+                    }
+                    if (j == 0) {
+                        LOGE("%s no proper pix fmt found in codec.\n", camera_dest.c_str());
+                        return false;
+                    }
+                } else {
+                    LOGE(
+                        "%s codec pix fmts is null.\n", camera_dest.c_str()
+                    );
+                    return false;
+                }
             } else {
                 outputCodec = pCodec;
+            }
+            if (outputCodec->id != pCodec->id) {
+                LOGI("output %s needs to decode then encode.\n", camera_dest.c_str());
+                encodes[i] = true;
+                decode = true;
             }
             ocodecs[i] = outputCodec;
             LOGI("use codec %s to encoding %s.\n", outputCodec->name, camera_dest.c_str());
@@ -805,24 +835,30 @@ public:
                 return false;
             }
             ostreams[i] = ostream;
-            AVCodecContext* ocodecCtx = ostream->codec;
-            ocodecCtxs[i] = ocodecCtx;
+            AVCodecContext* ocodecCtx = avcodec_alloc_context3(outputCodec);
+            if(avcodec_copy_context(codecCtx, ostream->codec) != 0) {
+                LOGE("Couldn't copy codec context for %s.\n", camera_dest.c_str());
+                return false; // Error copying codec context
+            }
             if (ocodecCtx == NULL) {
                 LOGE("failed to get output codec context for %s.\n", camera_dest.c_str());
                 return false;
             }
-            LOGI("open oput stream for %s success.\n", camera_dest.c_str());
-            if ((err_code = avcodec_copy_context(ocodecCtx, codecCtx)) < 0) {
-                LOGE("failed to copy codec context to %s.\n", camera_dest.c_str());
-                check_error(err_code);
+            copy_video_codec_info(
+                    ocodecCtx, codecCtx, oformatCtx
+            );
+            if (ocodecCtx->pix_fmt == AV_PIX_FMT_NONE) {
+                LOGE("%s no proper fix fmt found in codec context.\n", camera_dest.c_str());
                 return false;
             }
-            if (outputCodec->id != pCodec->id) {
-                LOGI("output %s needs to decode then encode.\n", camera_dest.c_str());
-                encodes[i] = true;
-                decode = true;
-            }
-            copy_video_stream_info(ostream, videoStream, oformatCtx);
+            // if ((err_code = avcodec_copy_context(ocodecCtx, codecCtx)) < 0) {
+            //     LOGE("failed to copy codec context to %s.\n", camera_dest.c_str());
+            //     check_error(err_code);
+            //     return false;
+            // }
+            ocodecCtxs[i] = ocodecCtx;
+            LOGI("open oput stream for %s success.\n", camera_dest.c_str());
+            copy_video_stream_info(ostream, videoStream);
             av_dump_format(oformatCtx, 0, camera_dest.c_str(), 1);
             AVPacket* opacket = av_packet_alloc();
             if (opacket == NULL) {
@@ -968,7 +1004,6 @@ public:
             string& camera_dest = camera_dests[i];
             AVFormatContext* oformatCtx = oformatCtxs[i];
 			if (destsStatus[i]) {
-				int err_code;
 				if((err_code = av_write_trailer(oformatCtx)) < 0) {
 					LOGE("failed to write trailer: %s.\n", camera_dest.c_str());
 					check_error(err_code);
@@ -1145,8 +1180,8 @@ public:
             );
             if (callback_per_frames > 0) {
                 if (*decoded_frames - *callback_frames < callback_per_frames) {
-                    LOGV("ignore %ld frame while callback frame is %ld.\n", decoded_frames,
-                         callback_frames);
+                    LOGV("ignore %ld frame while callback frame is %ld.\n", *decoded_frames,
+                         *callback_frames);
                     continue;
                 } else {
                     *callback_frames = *decoded_frames;

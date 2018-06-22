@@ -3,17 +3,12 @@ package com.example.xiaodong.testvideo
 import android.app.Activity
 import android.content.Intent
 import android.graphics.Color
-import android.net.Uri
 import android.util.Log
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
-import android.os.PersistableBundle
-import android.provider.DocumentsContract
 import android.view.View
-import android.widget.AdapterView
 import android.widget.Toast
 import kotlinx.android.synthetic.main.activity_camera_dest_edit.*
-import kotlinx.android.synthetic.main.activity_camera_edit.*
 
 class CameraDestEditActivity : AppCompatActivity() {
 

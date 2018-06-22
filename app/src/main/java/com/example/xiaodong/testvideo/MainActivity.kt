@@ -5,20 +5,9 @@ import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
 import kotlinx.android.synthetic.main.activity_main.*
 import android.content.Intent
-import android.os.PersistableBundle
 import android.util.Log
 import android.view.View
 import android.widget.AdapterView
-import android.Manifest.permission
-import android.Manifest.permission.SEND_SMS
-import android.app.Notification
-import android.app.PendingIntent
-import android.content.pm.PackageManager
-import android.content.Context.NOTIFICATION_SERVICE
-import android.app.NotificationManager
-import android.app.TaskStackBuilder
-import android.content.Context
-import android.support.v4.app.NotificationCompat
 import android.widget.Toast
 
 
@@ -92,7 +81,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         // Example of a call to a native method
         // sample_text.text = stringFromJNI()
-        Log.i(LOG_TAG, "main activiy initialized with state = $savedInstanceState")
+        Log.i(LOG_TAG, "main activity initialized with state = $savedInstanceState")
         dbHelper = DBOpenHelper(applicationContext, "my.db", null, 1)
         cameraList = getInitialCameraList()
         camerasAdapter = CameraAdapter(
