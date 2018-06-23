@@ -38,8 +38,7 @@ extern "C" JNIEXPORT jstring
 JNICALL
 Java_com_example_xiaodong_testvideo_FFmpeg_stringFromJNI(
         JNIEnv *env,
-        jobject /* this */
-) {
+        jobject /* this */) {
     return env->NewStringUTF(avcodec_configuration());
 }
 
@@ -495,7 +494,7 @@ public:
         int extra_size = (uint64_t)icodec->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE;
         ocodec->extradata = (uint8_t*)av_mallocz(extra_size);
         memcpy(ocodec->extradata, icodec->extradata, icodec->extradata_size);
-        ocodec->extradata_size = icodec->extradata_size;
+        ocodec->extradata_size= icodec->extradata_size;
 
         // Some formats want stream headers to be separate.
         ocodec->codec_tag = 0;
@@ -664,7 +663,6 @@ public:
             }
         } else {
             LOGE("%s codec pix fmts is null.\n", camera_source.c_str());
-            return false;
         }
         videoStreamIndex = err_code;
         videoStream = formatCtx->streams[videoStreamIndex];
@@ -756,6 +754,7 @@ public:
                 outputFormat = camera_dest_properties["output_format"].c_str();
                 LOGI("set output format %s.\n", outputFormat);
             }
+            LOGI("%s expected output format is %s.\n", camera_dest.c_str(), outputFormat);
             if((err_code = avformat_alloc_output_context2(
                     &oformatCtxs[i], NULL, outputFormat, camera_dest.c_str())
                ) < 0) {
@@ -817,7 +816,6 @@ public:
                     LOGE(
                         "%s codec pix fmts is null.\n", camera_dest.c_str()
                     );
-                    return false;
                 }
             } else {
                 outputCodec = pCodec;
@@ -835,29 +833,20 @@ public:
                 return false;
             }
             ostreams[i] = ostream;
-            AVCodecContext* ocodecCtx = avcodec_alloc_context3(outputCodec);
-            if(avcodec_copy_context(codecCtx, ostream->codec) != 0) {
-                LOGE("Couldn't copy codec context for %s.\n", camera_dest.c_str());
-                return false; // Error copying codec context
-            }
-            if (ocodecCtx == NULL) {
-                LOGE("failed to get output codec context for %s.\n", camera_dest.c_str());
-                return false;
-            }
-            copy_video_codec_info(
-                    ocodecCtx, codecCtx, oformatCtx
-            );
-            if (ocodecCtx->pix_fmt == AV_PIX_FMT_NONE) {
-                LOGE("%s no proper fix fmt found in codec context.\n", camera_dest.c_str());
-                return false;
-            }
-            // if ((err_code = avcodec_copy_context(ocodecCtx, codecCtx)) < 0) {
-            //     LOGE("failed to copy codec context to %s.\n", camera_dest.c_str());
-            //     check_error(err_code);
+            // AVCodecContext* ocodecCtx = avcodec_alloc_context3(outputCodec);
+            // if (ocodecCtx == NULL) {
+            //     LOGE("failed to get output codec context for %s.\n", camera_dest.c_str());
             //     return false;
             // }
+            AVCodecContext* ocodecCtx = ostream->codec;
             ocodecCtxs[i] = ocodecCtx;
             LOGI("open oput stream for %s success.\n", camera_dest.c_str());
+            if ((err_code = avcodec_copy_context(ocodecCtx, codecCtx)) < 0) {
+                LOGE("failed to copy codec context to %s.\n", camera_dest.c_str());
+                check_error(err_code);
+                return false;
+            }
+            copy_video_codec_info(ocodecCtx, codecCtx, oformatCtx);
             copy_video_stream_info(ostream, videoStream);
             av_dump_format(oformatCtx, 0, camera_dest.c_str(), 1);
             AVPacket* opacket = av_packet_alloc();
@@ -978,13 +967,13 @@ public:
                                     ostream, camera_dest
                             );
                         } else {
-                            LOGE(
+                            LOGD(
                                     "ignore copy packet to %s since status is already false.\n",
                                     camera_dest.c_str()
                             );
                         }
                     } else {
-                        LOGI(
+                        LOGD(
                                 "ignore copy packet to %s since it needs encode/\n",
                                 camera_dest.c_str()
                         );
@@ -1004,6 +993,7 @@ public:
             string& camera_dest = camera_dests[i];
             AVFormatContext* oformatCtx = oformatCtxs[i];
 			if (destsStatus[i]) {
+				int err_code;
 				if((err_code = av_write_trailer(oformatCtx)) < 0) {
 					LOGE("failed to write trailer: %s.\n", camera_dest.c_str());
 					check_error(err_code);
@@ -1073,7 +1063,7 @@ public:
             LOGE("failed to encode frame %s.\n", camera_dest.c_str());
             return false;
         }
-        while (status && err_code >= 0) {
+        while (status) {
             av_init_packet(opacket);
             if ((err_code = avcodec_receive_packet(ocodecCtx, opacket)) < 0) {
                 if (err_code != AVERROR(EAGAIN) && err_code != AVERROR_EOF) {
@@ -1136,7 +1126,7 @@ public:
                 *base_pts, videoStream->time_base, ms_rational
         );
         int destLength = camera_dests.size();
-        while (err_code < 0) {
+        while (true) {
             if ((err_code = avcodec_receive_frame(
                     codecCtx, decodedFrame
             )) < 0) {
@@ -1162,13 +1152,13 @@ public:
                                 ostream, camera_dest
                         );
                     } else {
-                        LOGE(
+                        LOGD(
                                 "ignore encode packet to %s since status is already false.\n",
                                 camera_dest.c_str()
                         );
                     }
                 } else {
-                    LOGI(
+                    LOGD(
                             "ignore encode packet to %s since it does not need encode.\n",
                             camera_dest.c_str()
                     );
@@ -1180,8 +1170,8 @@ public:
             );
             if (callback_per_frames > 0) {
                 if (*decoded_frames - *callback_frames < callback_per_frames) {
-                    LOGV("ignore %ld frame while callback frame is %ld.\n", *decoded_frames,
-                         *callback_frames);
+                    LOGV("ignore %ld frame while callback frame is %ld.\n", decoded_frames,
+                         callback_frames);
                     continue;
                 } else {
                     *callback_frames = *decoded_frames;
