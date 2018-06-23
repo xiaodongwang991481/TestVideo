@@ -13,6 +13,8 @@ import android.widget.Toast
 
 class MainActivity : AppCompatActivity() {
 
+    val ffmpegInstance = FFmpeg.getInstance()
+
     inner class AddCamera : View.OnClickListener {
         override fun onClick(v: View?) {
             this@MainActivity.onButtonClickAdd()

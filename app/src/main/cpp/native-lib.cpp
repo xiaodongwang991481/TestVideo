@@ -391,7 +391,7 @@ public:
     void applyBitmapCallback() {
         LOGV("apply bitmap callback on %s.\n", camera_source.c_str());
         if (env->IsSameObject(bitmapCallback, NULL)) {
-            LOGE("callback is NULL.\n");
+            LOGV("callback is NULL.\n");
             return;
         }
         env->CallVoidMethod(bitmapCallback, bitmapCallbackMethod, bitmap);
@@ -419,7 +419,7 @@ public:
     bool applyFinishCallback() {
         LOGV("apply finish callback on %s.\n", camera_source.c_str());
         if (env->IsSameObject(finishCallback, NULL)) {
-            LOGE("callback is NULL");
+            LOGV("callback is NULL");
             return true;
         }
         jboolean finished = env->CallBooleanMethod(finishCallback, finishCallbackMethod);
@@ -487,20 +487,8 @@ public:
         return true;
     }
 
-    void copy_codec_info(AVCodecContext* ocodec, AVCodecContext* icodec, AVFormatContext* ofmt_ctx) {
-        ocodec->codec_id = icodec->codec_id;
-        ocodec->codec_type = icodec->codec_type;
+    void copy_codec_info(AVCodecContext* ocodec, AVCodecContext* icodec) {
         ocodec->bit_rate = icodec->bit_rate;
-        int extra_size = (uint64_t)icodec->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE;
-        ocodec->extradata = (uint8_t*)av_mallocz(extra_size);
-        memcpy(ocodec->extradata, icodec->extradata, icodec->extradata_size);
-        ocodec->extradata_size= icodec->extradata_size;
-
-        // Some formats want stream headers to be separate.
-        ocodec->codec_tag = 0;
-        if (ofmt_ctx->oformat->flags & AVFMT_GLOBALHEADER){
-            ocodec->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
-        }
     }
 
     void copy_stream_info(AVStream* ostream, AVStream* istream){
@@ -508,8 +496,10 @@ public:
         // avcodec_parameters_copy(ostream->codecpar, istream->codecpar);
     }
 
-    void copy_video_codec_info(AVCodecContext* ocodec, AVCodecContext* icodec, AVFormatContext* ofmt_ctx) {
-        copy_codec_info(ocodec, icodec, ofmt_ctx);
+    void copy_video_codec_info(
+            AVCodecContext* ocodec, AVCodecContext* icodec
+    ) {
+        copy_codec_info(ocodec, icodec);
         ocodec->width = icodec->width;
         ocodec->height = icodec->height;
         ocodec->time_base = icodec->time_base;
@@ -519,10 +509,11 @@ public:
         ocodec->pix_fmt = icodec->pix_fmt;
     }
 
-    void copy_audio_codec_info(AVCodecContext* ocodec, AVCodecContext* icodec, AVFormatContext* ofmt_ctx) {
-        copy_codec_info(ocodec, icodec, ofmt_ctx);
+    void copy_audio_codec_info(AVCodecContext* ocodec, AVCodecContext* icodec) {
+        copy_codec_info(ocodec, icodec);
         ocodec->sample_fmt = icodec->sample_fmt;
         ocodec->sample_rate = icodec->sample_rate;
+        ocodec->channel_layout = icodec->channel_layout;
         ocodec->channels = icodec->channels;
     }
 
@@ -645,25 +636,6 @@ public:
             return false; // Codec not found
         }
         LOGI("get codec success: %s.\n", pCodec->name);
-        if (pCodec->pix_fmts != NULL) {
-            int i = 0;
-            while (true) {
-                LOGI(
-                        "%s codec %d pix fmt %d.\n",
-                        camera_source.c_str(), i, pCodec->pix_fmts[i]
-                );
-                if (pCodec->pix_fmts[i] == AV_PIX_FMT_NONE) {
-                    break;
-                }
-                i += 1;
-            }
-            if (i == 0) {
-                LOGE("%s no proper pix fmt found in codec.\n", camera_source.c_str());
-                return false;
-            }
-        } else {
-            LOGE("%s codec pix fmts is null.\n", camera_source.c_str());
-        }
         videoStreamIndex = err_code;
         videoStream = formatCtx->streams[videoStreamIndex];
         if (videoStream == NULL) {
@@ -796,27 +768,6 @@ public:
                     );
                     return false;
                 }
-                if (outputCodec->pix_fmts != NULL) {
-                    int j = 0;
-                    while (true) {
-                        LOGI(
-                                "%s codec %d pix fmt %d.\n",
-                                camera_dest.c_str(), j, outputCodec->pix_fmts[i]
-                        );
-                        if (outputCodec->pix_fmts[j] == AV_PIX_FMT_NONE) {
-                            break;
-                        }
-                        j += 1;
-                    }
-                    if (j == 0) {
-                        LOGE("%s no proper pix fmt found in codec.\n", camera_dest.c_str());
-                        return false;
-                    }
-                } else {
-                    LOGE(
-                        "%s codec pix fmts is null.\n", camera_dest.c_str()
-                    );
-                }
             } else {
                 outputCodec = pCodec;
             }
@@ -832,28 +783,54 @@ public:
                 LOGE("failed to create stream: %s.\n", camera_dest.c_str());
                 return false;
             }
+            LOGI("create new stream for %s.\n", camera_dest.c_str());
             ostreams[i] = ostream;
-            // AVCodecContext* ocodecCtx = avcodec_alloc_context3(outputCodec);
-            // if (ocodecCtx == NULL) {
-            //     LOGE("failed to get output codec context for %s.\n", camera_dest.c_str());
-            //     return false;
-            // }
-            AVCodecContext* ocodecCtx = ostream->codec;
-            ocodecCtxs[i] = ocodecCtx;
-            LOGI("open oput stream for %s success.\n", camera_dest.c_str());
-            if ((err_code = avcodec_copy_context(ocodecCtx, codecCtx)) < 0) {
-                LOGE("failed to copy codec context to %s.\n", camera_dest.c_str());
-                check_error(err_code);
-                return false;
+            AVCodecContext* ocodecCtx = NULL;
+            if (encodes[i]) {
+                ocodecCtx = avcodec_alloc_context3(outputCodec);
+                if (ocodecCtx == NULL) {
+                    LOGE("failed to get output codec context for %s.\n", camera_dest.c_str());
+                    return false;
+                }
+                ocodecCtxs[i] = ocodecCtx;
+            } else {
+                ocodecCtx = ostream->codec;
+                ocodecCtxs[i] = ocodecCtx;
+                if ((err_code = avcodec_copy_context(ocodecCtx, codecCtx)) < 0) {
+                    LOGE("failed to copy codec context to %s.\n", camera_dest.c_str());
+                    check_error(err_code);
+                    return false;
+                }
+                ocodecCtx->codec_id = codecCtx->codec_id;
+                ocodecCtx->codec_type = codecCtx->codec_type;
+                int extra_size = (uint64_t)codecCtx->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE;
+                ocodecCtx->extradata = (uint8_t*)av_mallocz(extra_size);
+                memcpy(ocodecCtx->extradata, codecCtx->extradata, codecCtx->extradata_size);
+                ocodecCtx->extradata_size = codecCtx->extradata_size;
+
+                // Some formats want stream headers to be separate.
+                ocodecCtx->codec_tag = 0;
+                if (oformatCtx->oformat->flags & AVFMT_GLOBALHEADER){
+                    ocodecCtx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+                }
             }
-            copy_video_codec_info(ocodecCtx, codecCtx, oformatCtx);
+            LOGI("open oput stream for %s success.\n", camera_dest.c_str());
+            copy_video_codec_info(ocodecCtx, codecCtx);
             copy_video_stream_info(ostream, videoStream);
+            if (encodes[i]) {
+                if ((err_code = avcodec_open2(ocodecCtx, outputCodec, NULL)) < 0) {
+                    LOGE("failed to open codec to %s", camera_dest.c_str());
+                    check_error(err_code);
+                    return false;
+                }
+            }
             av_dump_format(oformatCtx, 0, camera_dest.c_str(), 1);
             AVPacket* opacket = av_packet_alloc();
             if (opacket == NULL) {
                 LOGE("failed to alloc packet to %s.\n", camera_dest.c_str());
                 return false;
             }
+            av_init_packet(opacket);
             opackets[i] = opacket;
         }
         if ((err_code = AndroidBitmap_lockPixels(env, bitmap, &buffer)) < 0) {
@@ -895,6 +872,7 @@ public:
                 LOGE("failed to write header: %s.\n", camera_dest.c_str());
                 check_error(err_code);
 				destsStatus[i] = false;
+                return last_pts;
             } else {
                 LOGI("write header to %s.\n", camera_dest.c_str());
             }
@@ -908,8 +886,8 @@ public:
         int64_t decoded_frames = 0;
         int64_t callback_frames = 0;
         int64_t callback_duration = 0;
+        av_init_packet(&packet);
         while(true){
-            av_init_packet(&packet);
             if ((err_code = av_read_frame(formatCtx, &packet)) < 0) {
                 LOGE("Failed to read frame.\n");
                 check_error(err_code);
@@ -953,32 +931,7 @@ public:
                         );
                     }
                 }
-                for (int i = 0; i < destLength; i++) {
-                    string& camera_dest = camera_dests[i];
-                    AVFormatContext* oformatCtx = oformatCtxs[i];
-                    AVCodecContext* ocodecCtx = ocodecCtxs[i];
-					AVStream* ostream = ostreams[i];
-                    bool encode = encodes[i];
-                    if (!encode) {
-                        if (destsStatus[i]) {
-                            AVPacket *opacket = opackets[i];
-                            destsStatus[i] = copy_packet(
-                                    opacket, packet, oformatCtx, ocodecCtx,
-                                    ostream, camera_dest
-                            );
-                        } else {
-                            LOGD(
-                                    "ignore copy packet to %s since status is already false.\n",
-                                    camera_dest.c_str()
-                            );
-                        }
-                    } else {
-                        LOGD(
-                                "ignore copy packet to %s since it needs encode/\n",
-                                camera_dest.c_str()
-                        );
-                    }
-                }
+                copy_packets(packet);
             } else {
                 LOGV("ignore stream %d.\n", packet.stream_index)
             }
@@ -1006,6 +959,38 @@ public:
         return last_pts;
     }
 
+    void copy_packets(
+            AVPacket& packet
+    ) {
+        int destLength = camera_dests.size();
+        for (int i = 0; i < destLength; i++) {
+            string& camera_dest = camera_dests[i];
+            AVFormatContext* oformatCtx = oformatCtxs[i];
+            AVCodecContext* ocodecCtx = ocodecCtxs[i];
+            AVStream* ostream = ostreams[i];
+            bool encode = encodes[i];
+            if (!encode) {
+                if (destsStatus[i]) {
+                    AVPacket *opacket = opackets[i];
+                    destsStatus[i] = copy_packet(
+                            opacket, packet, oformatCtx, ocodecCtx,
+                            ostream, camera_dest
+                    );
+                } else {
+                    LOGD(
+                            "ignore copy packet to %s since status is already false.\n",
+                            camera_dest.c_str()
+                    );
+                }
+            } else {
+                LOGD(
+                        "ignore copy packet to %s since it needs encode/\n",
+                        camera_dest.c_str()
+                );
+            }
+        }
+    }
+
     bool copy_packet(
             AVPacket* opacket,
             AVPacket& packet,
@@ -1016,7 +1001,6 @@ public:
     ) {
         int err_code;
         int status = true;
-        av_init_packet(opacket);
         if ((err_code = av_packet_ref(opacket, &packet)) < 0) {
             LOGE("failed to get output packet: %s.\n", camera_dest.c_str());
             check_error(err_code);
@@ -1049,6 +1033,60 @@ public:
         return status;
     }
 
+    void encode_packets(AVPacket& packet) {
+        int destLength = camera_dests.size();
+        for (int i = 0; i < destLength; i++) {
+            string& camera_dest = camera_dests[i];
+            AVFormatContext* oformatCtx = oformatCtxs[i];
+            AVCodecContext* ocodecCtx = ocodecCtxs[i];
+            AVStream* ostream = ostreams[i];
+            bool encode = encodes[i];
+            if (encode) {
+                if (destsStatus[i]) {
+                    AVPacket *opacket = opackets[i];
+                    destsStatus[i] = encode_packet(
+                            opacket, packet, oformatCtx, ocodecCtx,
+                            ostream, camera_dest
+                    );
+                } else {
+                    LOGD(
+                            "ignore encode packet to %s since status is already false.\n",
+                            camera_dest.c_str()
+                    );
+                }
+            } else {
+                LOGD(
+                        "ignore encode packet to %s since it does not need encode.\n",
+                        camera_dest.c_str()
+                );
+            }
+        }
+    }
+
+    void sync_frame(
+            int64_t* base_pts, int64_t* base_time_ms,
+            int current_pts,
+            int64_t base_duration_ms, int64_t duration_ms_current
+    ) {
+        if (sync) {
+            int64_t time_ms_wait = 0;
+            int64_t time_ms_current = av_gettime();
+            int64_t time_ms_elapsed = time_ms_current - *base_time_ms;
+            int64_t time_ms_duration = duration_ms_current - base_duration_ms;
+            LOGV("time duration: %ld.\n", time_ms_duration);
+            time_ms_wait = time_ms_duration - time_ms_elapsed;
+            LOGV("time ms elapsed: %ld.\n", time_ms_elapsed);
+            LOGV("time ms to wait: %ld.\n", time_ms_wait);
+            if (time_ms_wait > 10000) {
+                av_usleep(time_ms_wait);
+            }
+            if (time_ms_wait < -10000) {
+                *base_pts = current_pts;
+                *base_time_ms = time_ms_current;
+            }
+        }
+    }
+
     bool encode_packet(
             AVPacket* opacket,
             AVPacket& packet,
@@ -1064,7 +1102,6 @@ public:
             return false;
         }
         while (status) {
-            av_init_packet(opacket);
             if ((err_code = avcodec_receive_packet(ocodecCtx, opacket)) < 0) {
                 if (err_code != AVERROR(EAGAIN) && err_code != AVERROR_EOF) {
                     LOGE("failed to receive packet.\n");
@@ -1111,6 +1148,10 @@ public:
             int64_t callback_per_frames,
             int64_t callback_per_duration
     ) {
+        LOGV(
+                "decode one packet at base time ms=%ld base pts=%ld.\n",
+                *base_time_ms, *base_pts
+        )
         AVRational ms_rational = av_make_q(1, AV_TIME_BASE);
         int err_code = 0;
         if ((err_code = avcodec_send_packet(codecCtx, &packet)) < 0) {
@@ -1119,13 +1160,13 @@ public:
                 LOGE("failed to send packet.\n");
                 return false;
             }
+            LOGV("finish decode since it buffer cleans.\n");
             return true;
         }
         LOGV("send one packet.\n");
         int64_t base_duration_ms = av_rescale_q(
                 *base_pts, videoStream->time_base, ms_rational
         );
-        int destLength = camera_dests.size();
         while (true) {
             if ((err_code = avcodec_receive_frame(
                     codecCtx, decodedFrame
@@ -1138,35 +1179,14 @@ public:
                 break;
             }
             LOGV("receive one frame.\n");
-            for (int i = 0; i < destLength; i++) {
-                string& camera_dest = camera_dests[i];
-                AVFormatContext* oformatCtx = oformatCtxs[i];
-                AVCodecContext* ocodecCtx = ocodecCtxs[i];
-                AVStream* ostream = ostreams[i];
-                bool encode = encodes[i];
-                if (encode) {
-                    if (destsStatus[i]) {
-                        AVPacket *opacket = opackets[i];
-                        destsStatus[i] = encode_packet(
-                                opacket, packet, oformatCtx, ocodecCtx,
-                                ostream, camera_dest
-                        );
-                    } else {
-                        LOGD(
-                                "ignore encode packet to %s since status is already false.\n",
-                                camera_dest.c_str()
-                        );
-                    }
-                } else {
-                    LOGD(
-                            "ignore encode packet to %s since it does not need encode.\n",
-                            camera_dest.c_str()
-                    );
-                }
-            }
+            encode_packets(packet);
             *decoded_frames++;
             int64_t duration_ms_current = av_rescale_q(
                     packet.pts, videoStream->time_base, ms_rational
+            );
+            sync_frame(
+                    base_pts, base_time_ms, packet.pts,
+                    base_duration_ms, duration_ms_current
             );
             if (callback_per_frames > 0) {
                 if (*decoded_frames - *callback_frames < callback_per_frames) {
@@ -1188,33 +1208,16 @@ public:
                     *callback_duration = duration_ms_current;
                 }
             }
-            if (sync) {
-                int64_t time_ms_wait = 0;
-                int64_t time_ms_current = av_gettime();
-                int64_t time_ms_elapsed = time_ms_current - *base_time_ms;
-                int64_t time_ms_duration = duration_ms_current - base_duration_ms;
-                LOGV("time duration: %ld.\n", time_ms_duration);
-                time_ms_wait = time_ms_duration - time_ms_elapsed;
-                LOGV("time ms elapsed: %ld.\n", time_ms_elapsed);
-                LOGV("time ms to wait: %ld.\n", time_ms_wait);
-                if (time_ms_wait > 10000) {
-                    av_usleep(time_ms_wait);
-                }
-                if (time_ms_wait < -10000) {
-                    *base_pts = packet.pts;
-                    *base_time_ms = time_ms_current;
-                }
-            }
-            LOGV(
-                    "packet after decode pts=%ld dts=%ld duration=%ld.\n",
-                    packet.pts, packet.dts, packet.duration
-            );
             sws_scale(sws_ctx, (const uint8_t *const *) decodedFrame->data,
                       decodedFrame->linesize, 0, codecCtx->height,
                       frameRGBA->data, frameRGBA->linesize
             );
             applyBitmapCallback();
         }
+        LOGV(
+                "packet after decode pts=%ld dts=%ld duration=%ld.\n",
+                packet.pts, packet.dts, packet.duration
+        );
         return true;
     }
 
@@ -1334,6 +1337,48 @@ Java_com_example_xiaodong_testvideo_FFmpeg_decode(
     return holder.process_packets(last_pts);
 }
 
+void list_input_formats() {
+    AVInputFormat* input_format = av_iformat_next(NULL);
+    while (input_format != NULL) {
+        LOGI("find input format %s.\n", input_format->name);
+        input_format = av_iformat_next(input_format);
+    }
+}
+
+void list_output_formats() {
+    AVOutputFormat* output_format = av_oformat_next(NULL);
+    while (output_format != NULL) {
+        LOGI("find output format %s.\n", output_format->name);
+        output_format = av_oformat_next(output_format);
+    }
+}
+
+void list_decoders() {
+    AVCodec* codec = av_codec_next(NULL);
+    while (codec != NULL) {
+        if (
+                avcodec_get_type(codec->id) == AVMEDIA_TYPE_VIDEO &&
+                av_codec_is_decoder(codec)
+        ) {
+            LOGI("find video decoder %s.\n", codec->name);
+        }
+        codec = av_codec_next(codec);
+    }
+}
+
+void list_encoders() {
+    AVCodec* codec = av_codec_next(NULL);
+    while (codec != NULL) {
+        if (
+                avcodec_get_type(codec->id) == AVMEDIA_TYPE_VIDEO &&
+                av_codec_is_encoder(codec)
+        ) {
+            LOGI("find video encoder %s.\n", codec->name);
+        }
+        codec = av_codec_next(codec);
+    }
+}
+
 extern "C" JNIEXPORT void
 JNICALL
 Java_com_example_xiaodong_testvideo_FFmpeg_initJNI(
@@ -1345,4 +1390,8 @@ Java_com_example_xiaodong_testvideo_FFmpeg_initJNI(
     avcodec_register_all();
     av_register_all();
     avformat_network_init();
+    list_input_formats();
+    list_output_formats();
+    list_decoders();
+    list_encoders();
 }
