@@ -786,37 +786,36 @@ public:
             LOGI("create new stream for %s.\n", camera_dest.c_str());
             ostreams[i] = ostream;
             AVCodecContext* ocodecCtx = NULL;
+            ocodecCtx = ostream->codec;
+            ocodecCtxs[i] = ocodecCtx;
             if (encodes[i]) {
-                ocodecCtx = avcodec_alloc_context3(outputCodec);
-                if (ocodecCtx == NULL) {
-                    LOGE("failed to get output codec context for %s.\n", camera_dest.c_str());
-                    return false;
-                }
-                ocodecCtxs[i] = ocodecCtx;
+                // ocodecCtx = avcodec_alloc_context3(outputCodec);
+                // if (ocodecCtx == NULL) {
+                //     LOGE("failed to get output codec context for %s.\n", camera_dest.c_str());
+                //     return false;
+                // }
+                // ostream->id = oformatCtx->nb_streams - 1;
             } else {
-                ocodecCtx = ostream->codec;
-                ocodecCtxs[i] = ocodecCtx;
                 if ((err_code = avcodec_copy_context(ocodecCtx, codecCtx)) < 0) {
                     LOGE("failed to copy codec context to %s.\n", camera_dest.c_str());
                     check_error(err_code);
                     return false;
                 }
-                ocodecCtx->codec_id = codecCtx->codec_id;
-                ocodecCtx->codec_type = codecCtx->codec_type;
+                // ocodecCtx->codec_id = codecCtx->codec_id;
+                // ocodecCtx->codec_type = codecCtx->codec_type;
                 int extra_size = (uint64_t)codecCtx->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE;
                 ocodecCtx->extradata = (uint8_t*)av_mallocz(extra_size);
                 memcpy(ocodecCtx->extradata, codecCtx->extradata, codecCtx->extradata_size);
                 ocodecCtx->extradata_size = codecCtx->extradata_size;
-
-                // Some formats want stream headers to be separate.
                 ocodecCtx->codec_tag = 0;
-                if (oformatCtx->oformat->flags & AVFMT_GLOBALHEADER){
-                    ocodecCtx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
-                }
+            }
+            // Some formats want stream headers to be separate.
+            if (oformatCtx->oformat->flags & AVFMT_GLOBALHEADER){
+                ocodecCtx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
             }
             LOGI("open oput stream for %s success.\n", camera_dest.c_str());
             copy_video_codec_info(ocodecCtx, codecCtx);
-            copy_video_stream_info(ostream, videoStream);
+            // copy_video_stream_info(ostream, videoStream);
             if (encodes[i]) {
                 if ((err_code = avcodec_open2(ocodecCtx, outputCodec, NULL)) < 0) {
                     LOGE("failed to open codec to %s", camera_dest.c_str());
@@ -1338,6 +1337,7 @@ Java_com_example_xiaodong_testvideo_FFmpeg_decode(
 }
 
 void list_input_formats() {
+    LOGI("list input formats.\n");
     AVInputFormat* input_format = av_iformat_next(NULL);
     while (input_format != NULL) {
         LOGI("find input format %s.\n", input_format->name);
@@ -1346,6 +1346,7 @@ void list_input_formats() {
 }
 
 void list_output_formats() {
+    LOGI("list output formats.\n");
     AVOutputFormat* output_format = av_oformat_next(NULL);
     while (output_format != NULL) {
         LOGI("find output format %s.\n", output_format->name);
@@ -1353,29 +1354,21 @@ void list_output_formats() {
     }
 }
 
-void list_decoders() {
-    AVCodec* codec = av_codec_next(NULL);
-    while (codec != NULL) {
-        if (
-                avcodec_get_type(codec->id) == AVMEDIA_TYPE_VIDEO &&
-                av_codec_is_decoder(codec)
-        ) {
-            LOGI("find video decoder %s.\n", codec->name);
+void list_codecs() {
+    LOGI("list codecs.\n");
+    void* i = 0;
+    AVCodec* codec = NULL;
+    while ((codec = (AVCodec*)av_codec_iterate(&i)) != NULL) {
+        if (codec->type == AVMEDIA_TYPE_VIDEO) {
+            LOGI("find codec %p = %s.\n", codec, codec->name);
+            if (av_codec_is_encoder(codec)) {
+                LOGI("codec %p %s is encoder.\n", codec, codec->name);
+            }
+            if (av_codec_is_decoder(codec)) {
+                LOGI("codec %p %s is decoder.\n", codec, codec->name);
+            }
         }
-        codec = av_codec_next(codec);
-    }
-}
-
-void list_encoders() {
-    AVCodec* codec = av_codec_next(NULL);
-    while (codec != NULL) {
-        if (
-                avcodec_get_type(codec->id) == AVMEDIA_TYPE_VIDEO &&
-                av_codec_is_encoder(codec)
-        ) {
-            LOGI("find video encoder %s.\n", codec->name);
-        }
-        codec = av_codec_next(codec);
+        // codec = av_codec_next(codec);
     }
 }
 
@@ -1392,6 +1385,5 @@ Java_com_example_xiaodong_testvideo_FFmpeg_initJNI(
     avformat_network_init();
     list_input_formats();
     list_output_formats();
-    list_decoders();
-    list_encoders();
+    list_codecs();
 }
