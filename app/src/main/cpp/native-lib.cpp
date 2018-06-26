@@ -506,7 +506,7 @@ public:
         ocodec->height = icodec->height;
         ocodec->time_base = icodec->time_base;
         ocodec->framerate = icodec->framerate;
-        // ocodec->max_b_frames = icodec->max_b_frames;
+        ocodec->max_b_frames = icodec->max_b_frames;
         ocodec->gop_size = icodec->gop_size;
         ocodec->sample_aspect_ratio = icodec->sample_aspect_ratio;
         // ocodec->pix_fmt = icodec->pix_fmt;
@@ -812,13 +812,17 @@ public:
             }
             LOGI("create new stream for %s.\n", camera_dest.c_str());
             ostreams[i] = ostream;
-            AVCodecContext* ocodecCtx = NULL;
+            AVCodecContext* ocodecCtx = ostream->codec;
             if (encodes[i]) {
-                ocodecCtx = avcodec_alloc_context3(outputCodec);
-                if (ocodecCtx == NULL) {
-                    LOGE("failed to get output codec context for %s.\n", camera_dest.c_str());
-                    return false;
-                }
+                // ocodecCtx = avcodec_alloc_context3(outputCodec);
+                // if (ocodecCtx == NULL) {
+                //     LOGE("failed to get output codec context for %s.\n", camera_dest.c_str());
+                //     return false;
+                // }
+                // if(avcodec_copy_context(ocodecCtx, ostream->codec) != 0) {
+                //     LOGE("Couldn't copy output codec context.\n");
+                //     return false; // Error copying codec context
+                // }
                 // ostream->id = oformatCtx->nb_streams - 1;
                 if (outputCodec->pix_fmts != NULL) {
                     i = 0;
@@ -834,16 +838,8 @@ public:
                     LOGE("%s support pix fmts is null.\n", camera_dest.c_str());
                     return false;
                 }
-                if((err_code = avcodec_parameters_to_context(ocodecCtx, ostream->codecpar)) < 0) {
-                    LOGE(
-                            "failed to copy stream codecpar to codec context %s.\n",
-                            camera_dest.c_str()
-                    );
-                    check_error(err_code);
-                    return false;
-                }
             } else {
-                ocodecCtx = ostream->codec;
+                // ocodecCtx = ostream->codec;
                 if ((err_code = avcodec_copy_context(ocodecCtx, codecCtx)) < 0) {
                     LOGE("failed to copy codec context to %s.\n", camera_dest.c_str());
                     check_error(err_code);
@@ -858,11 +854,11 @@ public:
                 ocodecCtx->codec_tag = 0;
                 ocodecCtx->pix_fmt = codecCtx->pix_fmt;
             }
-            ocodecCtxs[i] = ocodecCtx;
             // Some formats want stream headers to be separate.
             if (oformatCtx->oformat->flags & AVFMT_GLOBALHEADER){
                 ocodecCtx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
             }
+            ocodecCtxs[i] = ocodecCtx;
             LOGI("open oput stream for %s success.\n", camera_dest.c_str());
             copy_video_codec_info(ocodecCtx, codecCtx);
             // copy_video_stream_info(ostream, videoStream);
@@ -872,6 +868,14 @@ public:
                     check_error(err_code);
                     return false;
                 }
+                // if((err_code = avcodec_parameters_from_context(ostream->codecpar, ocodecCtx)) < 0) {
+                //     LOGE(
+                //             "failed to copy stream codecpar to codec context %s.\n",
+                //             camera_dest.c_str()
+                //     );
+                //     check_error(err_code);
+                //     return false;
+                // }
             }
             av_dump_format(oformatCtx, 0, camera_dest.c_str(), 1);
             AVPacket* opacket = av_packet_alloc();
@@ -1160,23 +1164,19 @@ public:
     ) {
         int err_code;
         bool status = true;
-        if ((err_code = avcodec_is_open(ocodecCtx)) < 0) {
-            LOGE("%s codec context is not opened.\n", camera_dest.c_str());
+        LOGV("encode packet to %s.\n", camera_dest.c_str());
+        if ((err_code = av_frame_make_writable(decodedFrame)) < 0) {
+            LOGE("failed to mark frame writable.\n");
             check_error(err_code);
             return false;
         }
-        const AVCodec* codec = ocodecCtx->codec;
-        if ((err_code = av_codec_is_encoder(codec)) < 0) {
-
-            LOGE("%s codec %s is not encoder.\n", camera_dest.c_str(), codec->name);
-            check_error(err_code);
-            return false;
-        }
+        LOGV("the frame is writable.\n");
         if ((err_code = avcodec_send_frame(ocodecCtx, decodedFrame)) < 0) {
             LOGE("failed to encode frame %s.\n", camera_dest.c_str());
             check_error(err_code);
             return false;
         }
+        LOGV("the frame is sent.\n");
         av_init_packet(opacket);
         while (status) {
             if ((err_code = avcodec_receive_packet(ocodecCtx, opacket)) < 0) {
