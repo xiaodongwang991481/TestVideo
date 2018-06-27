@@ -851,28 +851,20 @@ public:
                 ocodecCtx->extradata = (uint8_t*)av_mallocz(extra_size);
                 memcpy(ocodecCtx->extradata, codecCtx->extradata, codecCtx->extradata_size);
                 ocodecCtx->extradata_size = codecCtx->extradata_size;
-                ocodecCtx->codec_tag = 0;
                 ocodecCtx->pix_fmt = codecCtx->pix_fmt;
             }
             // Some formats want stream headers to be separate.
+            ocodecCtx->codec_tag = 0;
             if (oformatCtx->oformat->flags & AVFMT_GLOBALHEADER){
                 ocodecCtx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
             }
             ocodecCtxs[i] = ocodecCtx;
             LOGI("open oput stream for %s success.\n", camera_dest.c_str());
             copy_video_codec_info(ocodecCtx, codecCtx);
-            // copy_video_stream_info(ostream, videoStream);
+            copy_video_stream_info(ostream, videoStream);
             if (encodes[i]) {
                 if ((err_code = avcodec_open2(ocodecCtx, outputCodec, NULL)) < 0) {
                     LOGE("failed to open codec to %s", camera_dest.c_str());
-                    check_error(err_code);
-                    return false;
-                }
-                if((err_code = avcodec_parameters_from_context(ostream->codecpar, ocodecCtx)) < 0) {
-                    LOGE(
-                            "failed to copy stream codecpar to codec context %s.\n",
-                            camera_dest.c_str()
-                    );
                     check_error(err_code);
                     return false;
                 }
@@ -1165,12 +1157,6 @@ public:
         int err_code;
         bool status = true;
         LOGV("encode packet to %s.\n", camera_dest.c_str());
-        if ((err_code = av_frame_make_writable(decodedFrame)) < 0) {
-            LOGE("failed to mark frame writable.\n");
-            check_error(err_code);
-            return false;
-        }
-        LOGV("the frame is writable.\n");
         if ((err_code = avcodec_send_frame(ocodecCtx, decodedFrame)) < 0) {
             LOGE("failed to encode frame %s.\n", camera_dest.c_str());
             check_error(err_code);
