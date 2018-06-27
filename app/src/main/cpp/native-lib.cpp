@@ -868,14 +868,14 @@ public:
                     check_error(err_code);
                     return false;
                 }
-                // if((err_code = avcodec_parameters_from_context(ostream->codecpar, ocodecCtx)) < 0) {
-                //     LOGE(
-                //             "failed to copy stream codecpar to codec context %s.\n",
-                //             camera_dest.c_str()
-                //     );
-                //     check_error(err_code);
-                //     return false;
-                // }
+                if((err_code = avcodec_parameters_from_context(ostream->codecpar, ocodecCtx)) < 0) {
+                    LOGE(
+                            "failed to copy stream codecpar to codec context %s.\n",
+                            camera_dest.c_str()
+                    );
+                    check_error(err_code);
+                    return false;
+                }
             }
             av_dump_format(oformatCtx, 0, camera_dest.c_str(), 1);
             AVPacket* opacket = av_packet_alloc();
