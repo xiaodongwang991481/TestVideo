@@ -416,12 +416,45 @@ public:
         return true;
     }
 
-    void applyBitmapCallback() {
+    void applyBitmapCallback(
+            int64_t decoded_frames,
+            int64_t* callback_frames,
+            int64_t duration_ms_current,
+            int64_t* callback_duration,
+            int64_t callback_per_frames,
+            int64_t callback_per_duration
+    ) {
         LOGV("apply bitmap callback on %s.\n", camera_source.c_str());
         if (env->IsSameObject(bitmapCallback, NULL)) {
             LOGV("callback is NULL.\n");
             return;
         }
+        if (callback_per_frames > 0) {
+            if (decoded_frames - *callback_frames < callback_per_frames) {
+                LOGV(
+                        "ignore %ld frame while callback frame is %ld.\n",
+                        decoded_frames,
+                        callback_frames
+                );
+                return;
+            } else {
+                *callback_frames = decoded_frames;
+            }
+        }
+        if (callback_per_duration > 0) {
+            if (duration_ms_current - *callback_duration < callback_per_duration) {
+                LOGV(
+                        "ignore %ld duration while callback duration is %ld.\n",
+                        duration_ms_current, *callback_duration);
+                return;
+            } else {
+                *callback_duration = duration_ms_current;
+            }
+        }
+        sws_scale(sws_ctx, (const uint8_t *const *) decodedFrame->data,
+                  decodedFrame->linesize, 0, codecCtx->height,
+                  frameRGBA->data, frameRGBA->linesize
+        );
         env->CallVoidMethod(bitmapCallback, bitmapCallbackMethod, bitmap);
         if (env->ExceptionCheck()) {
             LOGE("Exception occurs when call bitmapCallback.\n");
@@ -561,12 +594,11 @@ public:
                     LOGI("output %s needs to decode then encode.\n", camera_dest.c_str());
                     encodes[i] = true;
                     decode = true;
-
+                    ocodecs[i] = outputCodec;
                 }
             } else {
                 outputCodec = pCodec;
             }
-            ocodecs[i] = outputCodec;
             LOGI("use codec %s to encoding %s.\n", outputCodec->name, camera_dest.c_str());
             AVPacket* opacket = av_packet_alloc();
             if (opacket == NULL) {
@@ -650,7 +682,6 @@ public:
                 }
                 ocodecCtxs[i] = ocodecCtx;
             } else {
-                // ocodecCtx = ostream->codec;
                 if ((err_code = avcodec_parameters_copy(
                         ostream->codecpar, videoStream->codecpar
                 )) < 0) {
@@ -978,12 +1009,12 @@ public:
             return false;
         }
         int err_code;
-		int frame_index = 0;
         int64_t decoded_frames = 0;
         int64_t callback_frames = 0;
         int64_t callback_duration = 0;
         av_init_packet(&packet);
         bool status = true;
+        int frame_index = 0;
         while (status) {
             if ((err_code = av_read_frame(formatCtx, &packet)) < 0) {
                 LOGE("Failed to read frame.\n");
@@ -1005,11 +1036,11 @@ public:
 					packet.dts = packet.pts;  
 					packet.duration = av_rescale_q(calc_duration, ms_rational, time_base1);
 				}
-				frame_index++;
-				LOGV(
+                LOGV(
                         "packet %d demux pts=%ld dts=%ld duration=%ld.\n",
-                        codecCtx->frame_number, packet.pts, packet.dts, packet.duration
+                        frame_index, packet.pts, packet.dts, packet.duration
                 );
+                ++frame_index;
                 if (decode) {
                     if(!decode_packet(
                             &packet, &base_time_ms, &base_pts,
@@ -1037,6 +1068,7 @@ public:
                 break;
             }
         }
+        encode_packets(NULL);
         writeDestTailers();
         return true;
     }
@@ -1049,14 +1081,13 @@ public:
         for (int i = 0; i < destLength; i++) {
             string& camera_dest = camera_dests[i];
             AVFormatContext* oformatCtx = oformatCtxs[i];
-            AVCodecContext* ocodecCtx = ocodecCtxs[i];
             AVStream* ostream = ostreams[i];
             bool encode = encodes[i];
             if (!encode) {
                 if (destsStatus[i]) {
                     AVPacket *opacket = opackets[i];
                     destsStatus[i] = copy_packet(
-                            opacket, packet, oformatCtx, ocodecCtx,
+                            opacket, packet, oformatCtx,
                             ostream, camera_dest
                     );
                 } else {
@@ -1070,7 +1101,7 @@ public:
                 }
             } else {
                 LOGD(
-                        "ignore copy packet to %s since it needs encode/\n",
+                        "ignore copy packet to %s since it needs encode.\n",
                         camera_dest.c_str()
                 );
             }
@@ -1082,7 +1113,6 @@ public:
             AVPacket* opacket,
             AVPacket* packet,
             AVFormatContext* oformatCtx,
-            AVCodecContext* ocodecCtx,
             AVStream* ostream,
             const string& camera_dest
     ) {
@@ -1105,8 +1135,8 @@ public:
                 packet->duration, videoStream->time_base, ostream->time_base
         );
         LOGV(
-                "packet %d mux pts=%ld dts=%ld duration=%ld.\n",
-                ocodecCtx->frame_number, opacket->pts, opacket->dts, opacket->duration
+                "packet mux pts=%ld dts=%ld duration=%ld.\n",
+                opacket->pts, opacket->dts, opacket->duration
         );
         opacket->stream_index = 0;
         if ((err_code = av_interleaved_write_frame(oformatCtx, opacket)) < 0) {
@@ -1114,14 +1144,13 @@ public:
             check_error(err_code);
             status = false;
         } else {
-            ocodecCtx->frame_number++;
             LOGV("write one frame: %s.\n", camera_dest.c_str());
         }
         av_packet_unref(opacket);
         return status;
     }
 
-    bool encode_packets(AVPacket* packet) {
+    bool encode_packets(AVFrame* frame) {
         int destLength = camera_dests.size();
         bool status = true;
         for (int i = 0; i < destLength; i++) {
@@ -1134,7 +1163,7 @@ public:
                 if (destsStatus[i]) {
                     AVPacket *opacket = opackets[i];
                     destsStatus[i] = encode_packet(
-                            opacket, packet, oformatCtx, ocodecCtx,
+                            opacket, frame, oformatCtx, ocodecCtx,
                             ostream, camera_dest
                     );
                 } else {
@@ -1182,7 +1211,7 @@ public:
 
     bool encode_packet(
             AVPacket* opacket,
-            AVPacket* packet,
+            AVFrame* frame,
             AVFormatContext* oformatCtx,
             AVCodecContext* ocodecCtx,
             AVStream* ostream,
@@ -1190,9 +1219,9 @@ public:
     ) {
         int err_code;
         bool status = true;
-        LOGV("decoded frame format=%d.\n", decodedFrame->format);
+        LOGV("decoded frame format=%d.\n", frame->format);
         LOGV("encode packet to %s.\n", camera_dest.c_str());
-        if ((err_code = avcodec_send_frame(ocodecCtx, decodedFrame)) < 0) {
+        if ((err_code = avcodec_send_frame(ocodecCtx, frame)) < 0) {
             LOGE("failed to encode frame %s.\n", camera_dest.c_str());
             check_error(err_code);
             return false;
@@ -1210,15 +1239,15 @@ public:
             }
             LOGV("receive one packet.\n");
             opacket->pts = av_rescale_q_rnd(
-                    packet->pts, videoStream->time_base, ostream->time_base,
+                    opacket->pts, videoStream->time_base, ostream->time_base,
                     AVRounding(AV_ROUND_NEAR_INF|AV_ROUND_PASS_MINMAX)
             );
             opacket->dts = av_rescale_q_rnd(
-                    packet->dts, videoStream->time_base, ostream->time_base,
+                    opacket->dts, videoStream->time_base, ostream->time_base,
                     AVRounding(AV_ROUND_NEAR_INF|AV_ROUND_PASS_MINMAX)
             );
             opacket->duration = av_rescale_q(
-                    packet->duration, videoStream->time_base, ostream->time_base
+                    opacket->duration, videoStream->time_base, ostream->time_base
             );
             LOGV(
                     "packet %d mux pts=%ld dts=%ld duration=%ld.\n",
@@ -1278,7 +1307,7 @@ public:
                 break;
             }
             LOGV("receive one frame.\n");
-            bool status = encode_packets(packet);
+            bool status = encode_packets(decodedFrame);
             if (!status) {
                 return false;
             }
@@ -1291,33 +1320,14 @@ public:
                     base_duration_ms, duration_ms_current
             );
             if (!env->IsSameObject(bitmapCallback, NULL)) {
-                if (callback_per_frames > 0) {
-                    if (*decoded_frames - *callback_frames < callback_per_frames) {
-                        LOGV(
-                                "ignore %ld frame while callback frame is %ld.\n",
-                                decoded_frames,
-                                callback_frames
-                        );
-                        continue;
-                    } else {
-                        *callback_frames = *decoded_frames;
-                    }
-                }
-                if (callback_per_duration > 0) {
-                    if (duration_ms_current - *callback_duration < callback_per_duration) {
-                        LOGV(
-                                "ignore %ld duration while callback duration is %ld.\n",
-                                duration_ms_current, *callback_duration);
-                        continue;
-                    } else {
-                        *callback_duration = duration_ms_current;
-                    }
-                }
-                sws_scale(sws_ctx, (const uint8_t *const *) decodedFrame->data,
-                          decodedFrame->linesize, 0, codecCtx->height,
-                          frameRGBA->data, frameRGBA->linesize
+                applyBitmapCallback(
+                        *decoded_frames,
+                        callback_frames,
+                        duration_ms_current,
+                        callback_duration,
+                        callback_per_frames,
+                        callback_per_duration
                 );
-                applyBitmapCallback();
             }
         }
         LOGV(
