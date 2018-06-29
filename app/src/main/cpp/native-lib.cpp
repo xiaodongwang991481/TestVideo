@@ -103,6 +103,12 @@ class CameraStreamHolder {
     struct SwsContext   *sws_ctx = NULL;
     AVCodec         *pCodec = NULL;
     char* error_buf = NULL;
+    int64_t bitmap_callback_per_frames = 0;
+    int64_t bitmap_callback_per_duration = 0;
+    int64_t finish_callback_per_frames = 0;
+    int64_t finish_callback_per_duration = 0;
+    int64_t processed_packets = 0;
+    int64_t decoded_frames = 0;
 
 public:
     CameraStreamHolder(
@@ -324,6 +330,34 @@ public:
                     it->first.c_str(), it->second.c_str()
             );
         }
+        if (camera_source_properties.find(
+                "bitmap_callback_per_frames"
+        ) != camera_source_properties.end()) {
+            bitmap_callback_per_frames = atol(
+                    camera_source_properties["bitmap_callback_per_frames"].c_str()
+            );
+        }
+        if (camera_source_properties.find(
+                "bitmap_callback_per_duration"
+        ) != camera_source_properties.end()) {
+            bitmap_callback_per_duration = atol(
+                    camera_source_properties["bitmap_callback_per_duration"].c_str()
+            );
+        }
+        if (camera_source_properties.find(
+                "finish_callback_per_frames"
+        ) != camera_source_properties.end()) {
+            finish_callback_per_frames = atol(
+                    camera_source_properties["finish_callback_per_frames"].c_str()
+            );
+        }
+        if (camera_source_properties.find(
+                "finish_callback_per_duration"
+        ) != camera_source_properties.end()) {
+            finish_callback_per_duration = atol(
+                    camera_source_properties["finish_callback_per_duration"].c_str()
+            );
+        }
         return true;
     }
 
@@ -417,20 +451,16 @@ public:
     }
 
     void applyBitmapCallback(
-            int64_t decoded_frames,
             int64_t* callback_frames,
-            int64_t duration_ms_current,
-            int64_t* callback_duration,
-            int64_t callback_per_frames,
-            int64_t callback_per_duration
+            int64_t* callback_duration
     ) {
         LOGV("apply bitmap callback on %s.\n", camera_source.c_str());
         if (env->IsSameObject(bitmapCallback, NULL)) {
             LOGV("callback is NULL.\n");
             return;
         }
-        if (callback_per_frames > 0) {
-            if (decoded_frames - *callback_frames < callback_per_frames) {
+        if (bitmap_callback_per_frames > 0) {
+            if (decoded_frames - *callback_frames < bitmap_callback_per_frames) {
                 LOGV(
                         "ignore %ld frame while callback frame is %ld.\n",
                         decoded_frames,
@@ -441,8 +471,9 @@ public:
                 *callback_frames = decoded_frames;
             }
         }
-        if (callback_per_duration > 0) {
-            if (duration_ms_current - *callback_duration < callback_per_duration) {
+        if (bitmap_callback_per_duration > 0) {
+            int64_t duration_ms_current = av_gettime();
+            if (duration_ms_current - *callback_duration < bitmap_callback_per_duration) {
                 LOGV(
                         "ignore %ld duration while callback duration is %ld.\n",
                         duration_ms_current, *callback_duration);
@@ -477,11 +508,37 @@ public:
         return true;
     }
 
-    bool applyFinishCallback() {
+    bool applyFinishCallback(
+            int64_t* callback_packets,
+            int64_t* callback_duration
+    ) {
         LOGV("apply finish callback on %s.\n", camera_source.c_str());
         if (env->IsSameObject(finishCallback, NULL)) {
             LOGV("callback is NULL");
             return true;
+        }
+        if (finish_callback_per_frames > 0) {
+            if (processed_packets - *callback_packets < finish_callback_per_frames) {
+                LOGV(
+                        "ignore %ld packet while callback packet is %ld.\n",
+                        processed_packets,
+                        callback_packets
+                );
+                return false;
+            } else {
+                *callback_packets = processed_packets;
+            }
+        }
+        if (finish_callback_per_duration > 0) {
+            int64_t duration_ms_current = av_gettime();
+            if (duration_ms_current - *callback_duration < finish_callback_per_duration) {
+                LOGV(
+                        "ignore %ld duration while callback duration is %ld.\n",
+                        duration_ms_current, *callback_duration);
+                return false;
+            } else {
+                *callback_duration = duration_ms_current;
+            }
         }
         jboolean finished = env->CallBooleanMethod(finishCallback, finishCallbackMethod);
         if (env->ExceptionCheck()) {
@@ -997,76 +1054,54 @@ public:
         av_init_packet(&packet);
         int64_t base_time_ms = av_gettime();
         int64_t base_pts = 0;
-        int64_t callback_per_frames = 0;
-        if (camera_source_properties.find("callback_per_frames") != camera_source_properties.end()) {
-            callback_per_frames = atol(camera_source_properties["callback_per_frames"].c_str());
-        }
-        int64_t callback_per_duration = 0;
-        if (camera_source_properties.find("callback_per_duration") != camera_source_properties.end()) {
-            callback_per_duration = atol(camera_source_properties["callback_per_duration"].c_str());
-        }
         if (!writeDestHeaders()) {
             return false;
         }
         int err_code;
-        int64_t decoded_frames = 0;
-        int64_t callback_frames = 0;
-        int64_t callback_duration = 0;
+        int64_t bitmap_callback_frames = 0;
+        int64_t bitmap_callback_duration = av_gettime();
+        int64_t finish_callback_frames = 0;
+        int64_t finish_callback_duration = av_gettime();
         av_init_packet(&packet);
-        bool status = true;
-        int frame_index = 0;
-        while (status) {
+        while (true) {
             if ((err_code = av_read_frame(formatCtx, &packet)) < 0) {
-                LOGE("Failed to read frame.\n");
-                check_error(err_code);
+                if (err_code != AVERROR_EOF) {
+                    LOGE("Failed to read frame.\n");
+                    check_error(err_code);
+                }
                 break;
             }
             if(packet.stream_index == videoStreamIndex){
-                if(packet.pts == AV_NOPTS_VALUE){
-					//Write PTS  
-					AVRational time_base1 = videoStream->time_base;  
-					//Duration between 2 frames (us)  
-					int64_t calc_duration = av_rescale(
-                            AV_TIME_BASE,
-                            videoStream->r_frame_rate.den,
-                            videoStream->r_frame_rate.num
-                    );
-					//Parameters  
-					packet.pts = av_rescale_q(frame_index * calc_duration, ms_rational, time_base1);
-					packet.dts = packet.pts;  
-					packet.duration = av_rescale_q(calc_duration, ms_rational, time_base1);
-				}
                 LOGV(
-                        "packet %d demux pts=%ld dts=%ld duration=%ld.\n",
-                        frame_index, packet.pts, packet.dts, packet.duration
+                        "packet %ld demux pts=%ld dts=%ld duration=%ld.\n",
+                        processed_packets, packet.pts, packet.dts, packet.duration
                 );
-                ++frame_index;
+                ++processed_packets;
                 if (decode) {
                     if(!decode_packet(
                             &packet, &base_time_ms, &base_pts,
-                            &decoded_frames,
-                            &callback_frames, &callback_duration,
-                            callback_per_frames, callback_per_duration
+                            &bitmap_callback_frames, &bitmap_callback_duration
                     )) {
                         LOGE(
                                 "failed to decode packet at base time=%ld base pts=%ld.\n",
                                 base_time_ms, base_pts
                         );
-                        status = false;
                     }
                 }
-                if (status) {
-                    status = copy_packets(&packet);
-                }
-            } else {
-                LOGV("ignore stream %d.\n", packet.stream_index)
+                copy_packets(&packet);
             }
             av_packet_unref(&packet);
             // packet = AVPacket();
-            if(applyFinishCallback()) {
+            if(applyFinishCallback(&finish_callback_frames, &finish_callback_duration)) {
                 LOGI("frame parsing is finished early.\n");
                 break;
             }
+        }
+        if (decode) {
+            decode_packet(
+                    NULL, &base_time_ms, &base_pts,
+                    &bitmap_callback_frames, &bitmap_callback_duration
+            );
         }
         encode_packets(NULL);
         writeDestTailers();
@@ -1123,19 +1158,9 @@ public:
             check_error(err_code);
             return false;
         }
-        opacket->pts = av_rescale_q_rnd(
-                packet->pts, videoStream->time_base, ostream->time_base,
-                AVRounding(AV_ROUND_NEAR_INF | AV_ROUND_PASS_MINMAX)
-        );
-        opacket->dts = av_rescale_q_rnd(
-                packet->dts, videoStream->time_base, ostream->time_base,
-                AVRounding(AV_ROUND_NEAR_INF | AV_ROUND_PASS_MINMAX)
-        );
-        opacket->duration = av_rescale_q(
-                packet->duration, videoStream->time_base, ostream->time_base
-        );
+        av_packet_rescale_ts(opacket, videoStream->time_base, ostream->time_base);
         LOGV(
-                "packet mux pts=%ld dts=%ld duration=%ld.\n",
+                "packet copy pts=%ld dts=%ld duration=%ld.\n",
                 opacket->pts, opacket->dts, opacket->duration
         );
         opacket->stream_index = 0;
@@ -1219,7 +1244,6 @@ public:
     ) {
         int err_code;
         bool status = true;
-        LOGV("decoded frame format=%d.\n", frame->format);
         LOGV("encode packet to %s.\n", camera_dest.c_str());
         if ((err_code = avcodec_send_frame(ocodecCtx, frame)) < 0) {
             LOGE("failed to encode frame %s.\n", camera_dest.c_str());
@@ -1238,17 +1262,7 @@ public:
                 break;
             }
             LOGV("receive one packet.\n");
-            opacket->pts = av_rescale_q_rnd(
-                    opacket->pts, videoStream->time_base, ostream->time_base,
-                    AVRounding(AV_ROUND_NEAR_INF|AV_ROUND_PASS_MINMAX)
-            );
-            opacket->dts = av_rescale_q_rnd(
-                    opacket->dts, videoStream->time_base, ostream->time_base,
-                    AVRounding(AV_ROUND_NEAR_INF|AV_ROUND_PASS_MINMAX)
-            );
-            opacket->duration = av_rescale_q(
-                    opacket->duration, videoStream->time_base, ostream->time_base
-            );
+            av_packet_rescale_ts(opacket, videoStream->time_base, ostream->time_base);
             LOGV(
                     "packet %d mux pts=%ld dts=%ld duration=%ld.\n",
                     ocodecCtx->frame_number, opacket->pts, opacket->dts, opacket->duration
@@ -1270,17 +1284,13 @@ public:
     bool decode_packet(
             AVPacket* packet,
             int64_t* base_time_ms, int64_t* base_pts,
-            int64_t* decoded_frames,
             int64_t* callback_frames,
-            int64_t* callback_duration,
-            int64_t callback_per_frames,
-            int64_t callback_per_duration
+            int64_t* callback_duration
     ) {
         LOGV(
                 "decode one packet at base time ms=%ld base pts=%ld.\n",
                 *base_time_ms, *base_pts
         )
-        AVRational ms_rational = av_make_q(1, AV_TIME_BASE);
         int err_code = 0;
         if ((err_code = avcodec_send_packet(codecCtx, packet)) < 0) {
             if (err_code != AVERROR(EAGAIN) && err_code != AVERROR_EOF) {
@@ -1292,9 +1302,7 @@ public:
             return true;
         }
         LOGV("send one packet.\n");
-        int64_t base_duration_ms = av_rescale_q(
-                *base_pts, videoStream->time_base, ms_rational
-        );
+        AVRational ms_rational = av_make_q(1, AV_TIME_BASE);
         while (true) {
             if ((err_code = avcodec_receive_frame(
                     codecCtx, decodedFrame
@@ -1306,34 +1314,36 @@ public:
                 }
                 break;
             }
-            LOGV("receive one frame.\n");
-            bool status = encode_packets(decodedFrame);
-            if (!status) {
+            LOGV("receive one frame at %ld.\n", decodedFrame->pts);
+            if (!encode_packets(decodedFrame)) {
+                LOGE("failed to encode packet.\n");
                 return false;
             }
-            *decoded_frames++;
+            decoded_frames++;
+            if (decodedFrame->pts == AV_NOPTS_VALUE) {
+                decodedFrame->pts = av_rescale_q(
+                        decoded_frames,
+                        av_inv_q(videoStream->r_frame_rate),
+                        videoStream->time_base
+                );
+            }
+            int64_t base_duration_ms = av_rescale_q(
+                    *base_pts, videoStream->time_base, ms_rational
+            );
             int64_t duration_ms_current = av_rescale_q(
-                    packet->pts, videoStream->time_base, ms_rational
+                    decodedFrame->pts, videoStream->time_base, ms_rational
             );
             sync_frame(
-                    base_pts, base_time_ms, packet->pts,
+                    base_pts, base_time_ms, decodedFrame->pts,
                     base_duration_ms, duration_ms_current
             );
             if (!env->IsSameObject(bitmapCallback, NULL)) {
                 applyBitmapCallback(
-                        *decoded_frames,
                         callback_frames,
-                        duration_ms_current,
-                        callback_duration,
-                        callback_per_frames,
-                        callback_per_duration
+                        callback_duration
                 );
             }
         }
-        LOGV(
-                "packet after decode pts=%ld dts=%ld duration=%ld.\n",
-                packet->pts, packet->dts, packet->duration
-        );
         return true;
     }
 
